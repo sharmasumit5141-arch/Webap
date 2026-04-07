@@ -8,27 +8,21 @@ export default async function handler(req, res) {
   if (req.method === "OPTIONS") return res.status(200).end();
   if (req.method !== "GET") return res.status(405).json({ error: "Method not allowed" });
 
-  const { tg_id, bot_id } = req.query;
-  if (!tg_id || !bot_id) return res.status(400).json({ error: "Missing fields" });
+  const { bot_id } = req.query;
+  if (!bot_id) return res.status(400).json({ error: "Missing bot_id" });
 
   let client;
   try {
     client = new MongoClient(MONGO_URI);
     await client.connect();
     const db = client.db("device_verify");
-
-    const refers = await db.collection("refer_log")
-      .find({ referrer: tg_id, bot_id })
-      .sort({ created_at: -1 })
-      .toArray();
+    const settings = await db.collection("settings").findOne({ bot_id });
 
     return res.status(200).json({
-      total: refers.length,
-      list: refers.map(r => ({
-        referred: r.referred,
-        amount: r.amount,
-        created_at: r.created_at,
-      })),
+      min_withdraw: settings?.min_withdraw || 50,
+      max_withdraw: settings?.max_withdraw || 5000,
+      tax_percent: settings?.tax_percent || 0,
+      refer_amount: settings?.refer_amount || 0,
     });
   } catch (err) {
     return res.status(500).json({ error: "Server error" });
