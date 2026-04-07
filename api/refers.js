@@ -24,7 +24,7 @@ export default async function handler(req, res) {
 
     return res.status(200).json({
       total: refers.length,
-      refers: refers.map(r => ({
+      list: refers.map(r => ({
         referred: r.referred,
         amount: r.amount,
         created_at: r.created_at,
