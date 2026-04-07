@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>UNIO Admin Panel</title>
+<style>
+* { margin:0; padding:0; box-sizing:border-box; }
+body { font-family:'Segoe UI',sans-serif; background:#0d0d1a; color:#fff; min-height:100vh; padding:20px; }
+h1 { color:#a78bfa; margin-bottom:20px; font-size:22px; }
+h2 { color:#6c63ff; font-size:16px; margin:20px 0 10px; }
+.card { background:#1a1a2e; border-radius:16px; padding:20px; margin-bottom:20px; }
+input, select { width:100%; padding:10px 14px; border-radius:10px; border:1px solid #2a2a4a;
+  background:#0d0d1a; color:#fff; font-size:14px; margin-bottom:10px; }
+button { padding:12px 20px; border:none; border-radius:10px; font-weight:700; cursor:pointer;
+  background:linear-gradient(135deg,#6c63ff,#a78bfa); color:#fff; font-size:14px; margin-right:8px; }
+button.sec { background:#2a2a4a; }
+table { width:100%; border-collapse:collapse; font-size:13px; }
+th { background:#2a2a4a; color:#a78bfa; padding:10px; text-align:left; }
+td { padding:9px 10px; border-bottom:1px solid #1a1a2e; }
+tr:hover td { background:#1e1e35; }
+.tag { padding:3px 10px; border-radius:20px; font-size:11px; font-weight:700; }
+.tag.s { background:rgba(0,200,100,.15); color:#00c864; }
+.tag.f { background:rgba(255,50,50,.15); color:#ff4444; }
+#loginBox { max-width:360px; margin:80px auto; }
+.stat { display:flex; gap:12px; flex-wrap:wrap; margin-bottom:10px; }
+.stat-card { background:#2a2a4a; border-radius:12px; padding:14px 20px; flex:1; min-width:120px; }
+.stat-card .val { font-size:22px; font-weight:800; color:#a78bfa; }
+.stat-card .lbl { font-size:12px; color:#888; margin-top:4px; }
+.tabs { display:flex; gap:10px; margin-bottom:20px; flex-wrap:wrap; }
+.tab { padding:9px 18px; border-radius:10px; background:#2a2a4a; color:#888;
+  cursor:pointer; font-weight:700; font-size:13px; }
+.tab.active { background:linear-gradient(135deg,#6c63ff,#a78bfa); color:#fff; }
+.section { display:none; }
+.section.active { display:block; }
+</style>
+</head>
+<body>
+
+<!-- Login -->
+<div id="loginBox" class="card">
+  <h1>🛡️ UNIO Admin</h1>
+  <input id="adminKey" type="password" placeholder="Admin Key dalo">
+  <input id="botIdLogin" type="text" placeholder="Bot ID (e.g. mybot)">
+  <button onclick="login()">Login</button>
+  <div id="loginErr" style="color:#ff4444;margin-top:10px;font-size:13px;"></div>
+</div>
+
+<!-- Main Panel -->
+<div id="mainPanel" style="display:none;max-width:800px;margin:0 auto;">
+  <h1>🛡️ UNIO Admin Panel</h1>
+
+  <div class="tabs">
+    <div class="tab active" onclick="showTab('dashboard')">📊 Dashboard</div>
+    <div class="tab" onclick="showTab('settings')">⚙️ Settings</div>
+    <div class="tab" onclick="showTab('withdrawals')">💸 Withdrawals</div>
+    <div class="tab" onclick="showTab('users')">👥 Users</div>
+    <div class="tab" onclick="showTab('refers')">🔗 Refers</div>
+  </div>
+
+  <!-- Dashboard -->
+  <div class="section active" id="tab-dashboard">
+    <div class="stat">
+      <div class="stat-card"><div class="val" id="statUsers">-</div><div class="lbl">Total Users</div></div>
+      <div class="stat-card"><div class="val" id="statW">-</div><div class="lbl">Total Withdrawals</div></div>
+      <div class="stat-card"><div class="val" id="statWAmt">-</div><div class="lbl">Total Paid (₹)</div></div>
+      <div class="stat-card"><div class="val" id="statRef">-</div><div class="lbl">Total Refers</div></div>
+    </div>
+  </div>
+
+  <!-- Settings -->
+  <div class="section" id="tab-settings">
+    <div class="card">
+      <h2>⚙️ Payout & Refer Settings</h2>
+      <label style="font-size:13px;color:#888;">Payout API URL (use {key}, {number}, {amount}, {comment})</label>
+      <input id="sApiUrl" placeholder="https://unio-hazel.vercel.app/api?key={key}&paytm={number}&amount={amount}&comment={comment}">
+      <label style="font-size:13px;color:#888;">Payout API Key</label>
+      <input id="sApiKey" placeholder="Your API Key">
+      <label style="font-size:13px;color:#888;">Refer Amount (₹)</label>
+      <input id="sRef" type="number" placeholder="e.g. 10">
+      <label style="font-size:13px;color:#888;">Tax % (withdrawal pe)</label>
+      <input id="sTax" type="number" placeholder="e.g. 5">
+      <label style="font-size:13px;color:#888;">Minimum Withdrawal (₹)</label>
+      <input id="sMin" type="number" placeholder="e.g. 50">
+      <label style="font-size:13px;color:#888;">Maximum Withdrawal (₹)</label>
+      <input id="sMax" type="number" placeholder="e.g. 5000">
+      <button onclick="saveSettings()">Save Settings</button>
+      <span id="saveMsg" style="color:#00c864;font-size:13px;margin-left:10px;"></span>
+    </div>
+  </div>
+
+  <!-- Withdrawals -->
+  <div class="section" id="tab-withdrawals">
+    <div class="card">
+      <h2>💸 Withdrawal History</h2>
+      <div id="wTotal" style="color:#a78bfa;font-weight:700;margin-bottom:12px;font-size:15px;"></div>
+      <div style="overflow-x:auto;">
+        <table>
+          <thead><tr><th>User</th><th>Paytm</th><th>Amount</th><th>Tax</th><th>Final</th><th>Status</th><th>Date</th></tr></thead>
+          <tbody id="wTable"><tr><td colspan="7" style="color:#555;text-align:center;">Loading...</td></tr></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- Users -->
+  <div class="section" id="tab-users">
+    <div class="card">
+      <h2>👥 Verified Users</h2>
+      <div style="overflow-x:auto;">
+        <table>
+          <thead><tr><th>Name</th><th>TG ID</th><th>Balance</th><th>Referrer</th><th>Verified</th></tr></thead>
+          <tbody id="uTable"><tr><td colspan="5" style="color:#555;text-align:center;">Loading...</td></tr></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- Refers -->
+  <div class="section" id="tab-refers">
+    <div class="card">
+      <h2>🔗 Refer Log</h2>
+      <div style="overflow-x:auto;">
+        <table>
+          <thead><tr><th>Referrer</th><th>Referred</th><th>Amount</th><th>Date</th></tr></thead>
+          <tbody id="rTable"><tr><td colspan="4" style="color:#555;text-align:center;">Loading...</td></tr></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+let ADMIN_KEY = "", BOT_ID = "";
+const API = "/api/admin";
+
+function login() {
+  ADMIN_KEY = document.getElementById("adminKey").value.trim();
+  BOT_ID = document.getElementById("botIdLogin").value.trim();
+  if (!ADMIN_KEY || !BOT_ID) { document.getElementById("loginErr").textContent = "Dono fields bharo"; return; }
+  loadAll();
+}
+
+async function apiFetch(params) {
+  const url = API + "?" + new URLSearchParams({ key: ADMIN_KEY, bot_id: BOT_ID, ...params });
+  const r = await fetch(url);
+  return r.json();
+}
+
+async function loadAll() {
+  try {
+    const [users, withdrawals, refers] = await Promise.all([
+      apiFetch({ action: "users" }),
+      apiFetch({ action: "withdrawals" }),
+      apiFetch({ action: "refers" })
+    ]);
+    if (users.error) { document.getElementById("loginErr").textContent = "Wrong key ya bot ID"; return; }
+    document.getElementById("loginBox").style.display = "none";
+    document.getElementById("mainPanel").style.display = "block";
+
+    // Dashboard stats
+    document.getElementById("statUsers").textContent = users.count || 0;
+    document.getElementById("statW").textContent = withdrawals.list?.length || 0;
+    document.getElementById("statWAmt").textContent = "₹" + (withdrawals.total || 0).toFixed(2);
+    document.getElementById("statRef").textContent = refers.list?.length || 0;
+
+    // Withdrawals table
+    const wt = document.getElementById("wTable");
+    wt.innerHTML = (withdrawals.list || []).map(w => `
+      <tr>
+        <td>${w.tg_name || "-"}</td>
+        <td>${w.paytm}</td>
+        <td>₹${w.amount}</td>
+        <td>₹${w.tax || 0}</td>
+        <td>₹${w.final_amount}</td>
+        <td><span class="tag ${w.status === 'success' ? 's' : 'f'}">${w.status}</span></td>
+        <td>${new Date(w.created_at).toLocaleDateString()}</td>
+      </tr>`).join("") || "<tr><td colspan='7' style='color:#555;text-align:center;'>No data</td></tr>";
+    document.getElementById("wTotal").textContent = "Total Paid: ₹" + (withdrawals.total || 0).toFixed(2);
+
+    // Users table
+    const ut = document.getElementById("uTable");
+    ut.innerHTML = (users.list || []).map(u => `
+      <tr>
+        <td>${u.tg_name}</td>
+        <td>${u.tg_id}</td>
+        <td>₹${u.balance || 0}</td>
+        <td>${u.referrer || "-"}</td>
+        <td>${new Date(u.verified_at).toLocaleDateString()}</td>
+      </tr>`).join("") || "<tr><td colspan='5' style='color:#555;text-align:center;'>No data</td></tr>";
+
+    // Refers table
+    const rt = document.getElementById("rTable");
+    rt.innerHTML = (refers.list || []).map(r => `
+      <tr>
+        <td>${r.referrer}</td>
+        <td>${r.referred}</td>
+        <td>₹${r.amount}</td>
+        <td>${new Date(r.created_at).toLocaleDateString()}</td>
+      </tr>`).join("") || "<tr><td colspan='4' style='color:#555;text-align:center;'>No data</td></tr>";
+
+    // Load settings
+    const s = await apiFetch({ action: "get_settings" });
+    if (!s.error) {
+      document.getElementById("sApiUrl").value = s.payout_api_url || "";
+      document.getElementById("sApiKey").value = s.payout_api_key || "";
+      document.getElementById("sRef").value = s.refer_amount || "";
+      document.getElementById("sTax").value = s.tax_percent || "";
+      document.getElementById("sMin").value = s.min_withdraw || "";
+      document.getElementById("sMax").value = s.max_withdraw || "";
+    }
+  } catch(e) { document.getElementById("loginErr").textContent = "Error: " + e.message; }
+}
+
+async function saveSettings() {
+  const body = {
+    key: ADMIN_KEY, bot_id: BOT_ID, action: "update_settings",
+    payout_api_url: document.getElementById("sApiUrl").value,
+    payout_api_key: document.getElementById("sApiKey").value,
+    refer_amount: document.getElementById("sRef").value,
+    tax_percent: document.getElementById("sTax").value,
+    min_withdraw: document.getElementById("sMin").value,
+    max_withdraw: document.getElementById("sMax").value
+  };
+  const r = await fetch(API, { method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify(body) });
+  const d = await r.json();
+  document.getElementById("saveMsg").textContent = d.status === "saved" ? "✅ Saved!" : "❌ Error";
+  setTimeout(() => document.getElementById("saveMsg").textContent = "", 3000);
+}
+
+function showTab(name) {
+  document.querySelectorAll(".section").forEach(s => s.classList.remove("active"));
+  document.querySelectorAll(".tab").forEach(t => t.classList.remove("active"));
+  document.getElementById("tab-" + name).classList.add("active");
+  event.target.classList.add("active");
+}
+</script>
+</body>
+  </html>
