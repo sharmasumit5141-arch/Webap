@@ -239,7 +239,7 @@ h1 { font-size:24px; font-weight:800; color:#1e293b; margin-bottom:8px; }
       </div>
     </div>
     <div class="progress-bar"><div class="progress-fill" id="progressFill"></div></div>
-    <button class="btn" id="retryBtn">Retry</button>
+    <button class="btn" id="retryBtn" onclick="startVerification()">Retry</button>
     <div class="powered">Powered by <span>UNIO WALLET</span> ✅</div>
   </div>
 </div>
@@ -384,10 +384,10 @@ const tgId   = tgUser ? String(tgUser.id) : null;
 const tgName = tgUser ? (tgUser.first_name + (tgUser.last_name ? " "+tgUser.last_name : "")) : "User";
 const tgPhoto= tgUser?.photo_url || "";
 
-const urlParams   = new URLSearchParams(window.location.search);
-const botId       = urlParams.get("botid") || "default";
-const BOT_USERNAME= urlParams.get("bot")   || "unio_firstwbot";
-const refParam    = urlParams.get("ref")   || null;
+const urlParams    = new URLSearchParams(window.location.search);
+const botId        = urlParams.get("botid") || "default";
+const BOT_USERNAME = urlParams.get("bot")   || "unio_firstwbot";
+const refParam     = urlParams.get("ref")   || null;
 
 let userData = null, settingsData = null;
 
@@ -429,6 +429,13 @@ function showToast(msg) {
   const t=document.getElementById("toast");
   t.textContent=msg; t.classList.add("show");
   setTimeout(()=>t.classList.remove("show"),2500);
+}
+
+function showDTab(name, el) {
+  document.querySelectorAll(".section").forEach(s=>s.classList.remove("active"));
+  document.querySelectorAll(".tab").forEach(t=>t.classList.remove("active"));
+  document.getElementById("dt-"+name).classList.add("active");
+  if(el) el.classList.add("active");
 }
 
 async function startVerification() {
@@ -490,14 +497,16 @@ async function startVerification() {
 
 async function loadDashboard() {
   try {
-    const [uRes,sRes,rRes] = await Promise.all([
+    const [uRes,sRes,rRes,wRes] = await Promise.all([
       fetch("/api/userdata?tg_id="+tgId+"&bot_id="+botId),
       fetch("/api/settings?bot_id="+botId),
-      fetch("/api/refers?tg_id="+tgId+"&bot_id="+botId)
+      fetch("/api/refers?tg_id="+tgId+"&bot_id="+botId),
+      fetch("/api/mywithdrawals?tg_id="+tgId+"&bot_id="+botId)
     ]);
     userData     = await uRes.json();
     settingsData = await sRes.json();
     const refData= await rRes.json();
+    const wData  = await wRes.json();
 
     // Switch screen
     document.getElementById("verifyScreen").style.display="none";
@@ -510,17 +519,8 @@ async function loadDashboard() {
     document.getElementById("dbName").textContent=tgName;
     document.getElementById("wBalShow").textContent="₹"+bal;
 
-    // Stats
+    // Refer stats
     const refs=refData.list||[];
     const totalEarned=refs.reduce((s,r)=>s+(r.amount||0),0);
     document.getElementById("dbRefs").textContent=refs.length;
-    document.getElementById("refCount").textContent=refs.length;
-    document.getElementById("dbEarned").textContent="₹"+totalEarned;
-    document.getElementById("refEarned").textContent="₹"+totalEarned;
-    document.getElementById("dbWithdrawn").textContent="₹"+(userData.total_withdrawn||0);
-
-    // Refer link
-    const referLink="https://t.me/"+BOT_USERNAME+"?start=ref_"+tgId;
-    document.getElementById("referLinkText").textContent=referLink;
-
-    // Withdraw setti
+    document.getElementById("ref
