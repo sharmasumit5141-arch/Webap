@@ -13,12 +13,14 @@ app.use(express.json());
 app.use(requestIp.mw());
 
 /* =========================
-   ROOT
+   ROOT CHECK
 ========================= */
 
 app.get('/', (req, res) => {
 
-    res.send("🚀 Verification API Running");
+    res.json({
+        status: "API Working"
+    });
 
 });
 
@@ -46,7 +48,7 @@ mongoose.connect(mongoURI, {
 });
 
 /* =========================
-   DATABASE SCHEMA
+   DATABASE
 ========================= */
 
 const userSchema = new mongoose.Schema({
@@ -88,7 +90,7 @@ const userSchema = new mongoose.Schema({
 
 });
 
-/* One User Verify Once Per Bot */
+/* One Verify Per Bot */
 
 userSchema.index(
 
@@ -143,10 +145,10 @@ async function sendAlert(token, chatId, text){
 }
 
 /* =========================
-   VERIFY API
+   MAIN API
 ========================= */
 
-app.get('/verify-api', async (req, res) => {
+app.get('/api', async (req, res) => {
 
     try{
 
@@ -160,7 +162,7 @@ app.get('/verify-api', async (req, res) => {
 
         } = req.query;
 
-        /* Validate Params */
+        /* Validate */
 
         if(
 
@@ -179,7 +181,7 @@ app.get('/verify-api', async (req, res) => {
             });
         }
 
-        /* Get User IP */
+        /* IP */
 
         const ip =
         req.clientIp ||
@@ -317,8 +319,6 @@ You are already registered.`
             );
 
         }catch(e){}
-
-        /* SUCCESS RESPONSE */
 
         return res.status(200).json({
 
