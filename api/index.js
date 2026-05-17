@@ -17,7 +17,9 @@ app.use(requestIp.mw());
 ========================= */
 
 app.get('/', (req, res) => {
+
     res.send("🚀 Verification API Running");
+
 });
 
 /* =========================
@@ -28,13 +30,19 @@ const mongoURI =
 "mongodb+srv://meena:uniokesugcoms@cluster0.i2uggah.mongodb.net/verifydb?retryWrites=true&w=majority";
 
 mongoose.connect(mongoURI, {
+
     serverSelectionTimeoutMS: 5000
+
 })
 .then(() => {
+
     console.log("💾 MongoDB Connected");
+
 })
 .catch((err) => {
+
     console.log("❌ Mongo Error:", err.message);
+
 });
 
 /* =========================
@@ -44,40 +52,55 @@ mongoose.connect(mongoURI, {
 const userSchema = new mongoose.Schema({
 
     tgId: {
+
         type: String,
         required: true
+
     },
 
     botUsername: {
+
         type: String,
         required: true
+
     },
 
     deviceKey: {
+
         type: String,
         required: true,
         unique: true
+
     },
 
     ip: {
+
         type: String
+
     },
 
     createdAt: {
+
         type: Date,
         default: Date.now
+
     }
 
 });
 
+/* One User Verify Once Per Bot */
+
 userSchema.index(
+
     {
         tgId: 1,
         botUsername: 1
     },
+
     {
         unique: true
     }
+
 );
 
 const User =
@@ -88,9 +111,9 @@ mongoose.model('VerifiedUser', userSchema);
    TELEGRAM ALERT
 ========================= */
 
-async function sendAlert(token, chatId, text) {
+async function sendAlert(token, chatId, text){
 
-    try {
+    try{
 
         const url =
         `https://api.telegram.org/bot${token}/sendMessage`;
@@ -104,15 +127,18 @@ async function sendAlert(token, chatId, text) {
             },
 
             body: JSON.stringify({
+
                 chat_id: chatId,
                 text: text
+
             })
 
         });
 
-    } catch (e) {
+    }catch(e){
 
         console.log("⚠ Telegram Error:", e.message);
+
     }
 }
 
@@ -122,35 +148,38 @@ async function sendAlert(token, chatId, text) {
 
 app.get('/verify-api', async (req, res) => {
 
-    try {
+    try{
 
         const {
+
             botusername,
             bottoken,
             tg_id,
             browser_id,
             name
+
         } = req.query;
 
-        /* Validate */
+        /* Validate Params */
 
-        if (
+        if(
+
             !botusername ||
             !bottoken ||
             !tg_id ||
             !browser_id
-        ) {
+
+        ){
 
             return res.status(400).json({
 
                 status: 'fail',
-
                 message: 'Parameters Missing'
 
             });
         }
 
-        /* User IP */
+        /* Get User IP */
 
         const ip =
         req.clientIp ||
@@ -178,9 +207,9 @@ app.get('/verify-api', async (req, res) => {
 
         });
 
-        if (multiAccountCheck) {
+        if(multiAccountCheck){
 
-            try {
+            try{
 
                 await sendAlert(
 
@@ -197,12 +226,11 @@ Same device already used!`
 
                 );
 
-            } catch (e) {}
+            }catch(e){}
 
             return res.status(403).json({
 
                 status: 'fail',
-
                 message: 'Multi-account detected'
 
             });
@@ -221,9 +249,9 @@ Same device already used!`
 
         });
 
-        if (alreadyVerified) {
+        if(alreadyVerified){
 
-            try {
+            try{
 
                 await sendAlert(
 
@@ -239,12 +267,11 @@ You are already registered.`
 
                 );
 
-            } catch (e) {}
+            }catch(e){}
 
             return res.status(400).json({
 
                 status: 'fail',
-
                 message: 'Already registered on this bot'
 
             });
@@ -272,7 +299,7 @@ You are already registered.`
            SUCCESS ALERT
         ========================= */
 
-        try {
+        try{
 
             await sendAlert(
 
@@ -289,26 +316,24 @@ You are already registered.`
 
             );
 
-        } catch (e) {}
+        }catch(e){}
 
         /* SUCCESS RESPONSE */
 
         return res.status(200).json({
 
             status: 'pass',
-
             message: 'Verification Successful'
 
         });
 
-    } catch (err) {
+    }catch(err){
 
         console.log("❌ Verify Error:", err);
 
         return res.status(500).json({
 
             status: 'fail',
-
             message: err.message || 'Internal Server Error'
 
         });
@@ -316,7 +341,7 @@ You are already registered.`
 });
 
 /* =========================
-   EXPORT FOR VERCEL
+   EXPORT
 ========================= */
 
 module.exports = app;
