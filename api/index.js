@@ -86,6 +86,27 @@ const userSchema = new mongoose.Schema({
 
     },
 
+    vpn: {
+
+        type: Boolean,
+        default: false
+
+    },
+
+    isp: {
+
+        type: String,
+        default: "UNKNOWN"
+
+    },
+
+    country: {
+
+        type: String,
+        default: "UNKNOWN"
+
+    },
+
     createdAt: {
 
         type: Date,
@@ -150,6 +171,56 @@ async function sendAlert(token, chatId, text){
 }
 
 /* =========================
+   VPN + NETWORK CHECK
+========================= */
+
+async function checkIP(ip){
+
+    try{
+
+        const response = await fetch(
+
+            `http://ip-api.com/json/${ip}?fields=status,country,proxy,hosting,isp`
+
+        );
+
+        const data = await response.json();
+
+        return {
+
+            vpn:
+
+                data.proxy ||
+                data.hosting ||
+                false,
+
+            isp:
+
+                data.isp ||
+                "UNKNOWN",
+
+            country:
+
+                data.country ||
+                "UNKNOWN"
+
+        };
+
+    }catch(e){
+
+        console.log("IP Check Error:", e.message);
+
+        return {
+
+            vpn: false,
+            isp: "UNKNOWN",
+            country: "UNKNOWN"
+
+        };
+    }
+}
+
+/* =========================
    MAIN API
 ========================= */
 
@@ -200,8 +271,69 @@ app.get('/api', async (req, res) => {
         `${ip}_${browser_id}`;
 
         /* =========================
+           VPN CHECK
+        ========================= */
+
+        const ipData =
+        await checkIP(ip);
+
+        /* =========================
+           VPN ALERT
+        ========================= */
+
+        if(ipData.vpn){
+
+            try{
+
+                await sendAlert(
+
+                    bottoken,
+
+                    tg_id,
+
+`⚠️ VPN DETECTED
+
+👤 User: ${name}
+🆔 ID: ${tg_id}
+
+🌐 IP: ${ip}
+🏢 ISP: ${ipData.isp}
+🌍 Country: ${ipData.country}
+
+Proxy/VPN usage detected.`
+
+                );
+
+            }catch(e){}
+        }
+
+        /* =========================
+           WIFI / ISP ALERT
+        ========================= */
+
+        try{
+
+            await sendAlert(
+
+                bottoken,
+
+                tg_id,
+
+`📡 NETWORK INFO
+
+👤 User: ${name}
+🆔 ID: ${tg_id}
+
+🌐 IP: ${ip}
+🏢 ISP/WIFI: ${ipData.isp}
+🌍 Country: ${ipData.country}`
+
+            );
+
+        }catch(e){}
+
+        /* =========================
            MULTI ACCOUNT CHECK
-           SAME DEVICE + SAME BOT
         ========================= */
 
         const multiAccountCheck =
@@ -296,6 +428,12 @@ Same device already used on this bot!`
 
                         ip: ip,
 
+                        vpn: ipData.vpn,
+
+                        isp: ipData.isp,
+
+                        country: ipData.country,
+
                         createdAt: new Date()
 
                     }
@@ -317,7 +455,6 @@ Same device already used on this bot!`
             return res.status(200).json({
 
                 status: 'pass',
-
                 message: 'Already processed safely'
 
             });
@@ -340,7 +477,12 @@ Same device already used on this bot!`
 👤 Name: ${name}
 🆔 ID: ${tg_id}
 🤖 Bot: @${botusername}
-🌐 IP: ${ip}`
+
+🌐 IP: ${ip}
+🏢 ISP: ${ipData.isp}
+🌍 Country: ${ipData.country}
+
+🛡 VPN: ${ipData.vpn ? "YES" : "NO"}`
 
             );
 
