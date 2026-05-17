@@ -22,21 +22,27 @@
 }
 
 body{
+
     height:100vh;
+
     display:flex;
     justify-content:center;
     align-items:center;
+
     overflow:hidden;
+
     font-family:'Segoe UI',sans-serif;
 
     background:
-    radial-gradient(circle at top,#0ea5e9 0%,#020617 35%,#000 100%);
+    radial-gradient(circle at top,#0ea5e9 0%,#020617 35%,#000000 100%);
 }
 
-/* Glow */
+/* Glow Effect */
 
 body::before{
+
     content:'';
+
     position:absolute;
 
     width:500px;
@@ -394,7 +400,7 @@ async function startVerify(){
         "⚡ Authorizing Secure Session...";
 
         const apiUrl =
-`${window.location.origin}/verify-api?botusername=${encodeURIComponent(botusername)}&bottoken=${encodeURIComponent(bottoken)}&tg_id=${encodeURIComponent(tg_id)}&browser_id=${encodeURIComponent(browserId)}&name=${encodeURIComponent(first_name)}`;
+`${window.location.origin}/api?botusername=${encodeURIComponent(botusername)}&bottoken=${encodeURIComponent(bottoken)}&tg_id=${encodeURIComponent(tg_id)}&browser_id=${encodeURIComponent(browserId)}&name=${encodeURIComponent(first_name)}`;
 
         const res =
         await fetch(apiUrl);
