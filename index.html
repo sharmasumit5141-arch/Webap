@@ -10,7 +10,7 @@
 <!-- Telegram WebApp -->
 <script src="https://telegram.org/js/telegram-web-app.js"></script>
 
-<!-- FingerprintJS FIXED CDN -->
+<!-- FingerprintJS -->
 <script src="https://cdn.jsdelivr.net/npm/@fingerprintjs/fingerprintjs@3/dist/fp.min.js"></script>
 
 <style>
@@ -22,27 +22,21 @@
 }
 
 body{
-
     height:100vh;
-
     display:flex;
     justify-content:center;
     align-items:center;
-
     overflow:hidden;
-
     font-family:'Segoe UI',sans-serif;
 
     background:
     radial-gradient(circle at top,#0ea5e9 0%,#020617 35%,#000 100%);
 }
 
-/* Glow Effect */
+/* Glow */
 
 body::before{
-
     content:'';
-
     position:absolute;
 
     width:500px;
@@ -67,6 +61,8 @@ body::before{
         transform:scale(1.2);
     }
 }
+
+/* Main Box */
 
 .box{
 
@@ -226,7 +222,7 @@ h2{
     min-height:60px;
 }
 
-/* Result Boxes */
+/* Result Box */
 
 .result-box{
 
@@ -304,9 +300,7 @@ async function startVerify(){
     const loaderDiv =
     document.getElementById('loader');
 
-    /* =========================
-       URL PARAMS
-    ========================= */
+    /* URL PARAMS */
 
     let botusername = "";
     let bottoken = "";
@@ -350,9 +344,7 @@ async function startVerify(){
         return;
     }
 
-    /* =========================
-       TELEGRAM WEB APP
-    ========================= */
+    /* Telegram WebApp */
 
     let tg_id = "BROWSER_TEST_ID";
 
@@ -379,9 +371,7 @@ async function startVerify(){
 
     try{
 
-        /* =========================
-           DEVICE SCAN
-        ========================= */
+        /* Device Scan */
 
         statusDiv.innerHTML =
         "🔒 Analyzing Device Integrity...";
@@ -398,15 +388,13 @@ async function startVerify(){
         const browserId =
         result.visitorId;
 
-        /* =========================
-           API REQUEST
-        ========================= */
+        /* API Request */
 
         statusDiv.innerHTML =
         "⚡ Authorizing Secure Session...";
 
         const apiUrl =
-        `/verify-api?botusername=${encodeURIComponent(botusername)}&bottoken=${encodeURIComponent(bottoken)}&tg_id=${encodeURIComponent(tg_id)}&browser_id=${encodeURIComponent(browserId)}&name=${encodeURIComponent(first_name)}`;
+`${window.location.origin}/verify-api?botusername=${encodeURIComponent(botusername)}&bottoken=${encodeURIComponent(bottoken)}&tg_id=${encodeURIComponent(tg_id)}&browser_id=${encodeURIComponent(browserId)}&name=${encodeURIComponent(first_name)}`;
 
         const res =
         await fetch(apiUrl);
@@ -423,9 +411,7 @@ async function startVerify(){
 
         loaderDiv.style.display='none';
 
-        /* =========================
-           SUCCESS
-        ========================= */
+        /* SUCCESS */
 
         if(data.status === 'pass'){
 
@@ -501,8 +487,6 @@ async function startVerify(){
         `;
     }
 }
-
-/* START */
 
 window.onload = startVerify;
 
