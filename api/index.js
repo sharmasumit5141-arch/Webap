@@ -7,12 +7,12 @@ const app = express();
 app.use(express.json());
 app.use(requestIp.mw());
 
-// 🔥 Tumhara Real MongoDB Connection String Direct Added Hai
-const mongoURI = "mongodb+srv://Websnews:uniokesugcom@cluster0.inqs1eh.mongodb.net/?appName=Cluster0";
+// 🔥 Tumhara Naya MongoDB Connection String Direct Added Hai
+const mongoURI = "mongodb+srv://meena:uniokesugcoms@cluster0.i2uggah.mongodb.net/?appName=Cluster0";
 
 // Clean Mongoose v8+ Connection Logic
 mongoose.connect(mongoURI)
-    .then(() => console.log("💾 MongoDB Connected Successfully!"))
+    .then(() => console.log("💾 New MongoDB Connected Successfully!"))
     .catch(err => console.error("❌ MongoDB Connection Failed:", err.message));
 
 // Database Schema Setup
