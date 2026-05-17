@@ -73,8 +73,6 @@ const userSchema = new mongoose.Schema({
 
     },
 
-    /* FIXED */
-
     deviceKey: {
 
         type: String,
@@ -97,7 +95,7 @@ const userSchema = new mongoose.Schema({
 
 });
 
-/* ONE VERIFY PER BOT */
+/* SAME USER SAME BOT BLOCK */
 
 userSchema.index(
 
@@ -203,12 +201,15 @@ app.get('/api', async (req, res) => {
 
         /* =========================
            MULTI ACCOUNT CHECK
+           SAME DEVICE + SAME BOT
         ========================= */
 
         const multiAccountCheck =
         await User.findOne({
 
             deviceKey: finalDeviceKey,
+
+            botUsername: botusername,
 
             tgId: {
                 $ne: tg_id
@@ -231,7 +232,7 @@ app.get('/api', async (req, res) => {
 👤 User: ${name}
 🆔 ID: ${tg_id}
 
-Same device already used!`
+Same device already used on this bot!`
 
                 );
 
@@ -240,7 +241,7 @@ Same device already used!`
             return res.status(403).json({
 
                 status: 'fail',
-                message: 'Multi-account detected'
+                message: 'Multi-account detected on this bot'
 
             });
         }
@@ -327,7 +328,7 @@ You are already registered.`
 
         }catch(e){}
 
-        /* SUCCESS RESPONSE */
+        /* SUCCESS */
 
         return res.status(200).json({
 
