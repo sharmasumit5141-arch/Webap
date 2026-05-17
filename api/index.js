@@ -11,15 +11,13 @@ app.use(requestIp.mw());
 /* =========================
    ROOT
 ========================= */
-
 app.get('/', (req, res) => {
-    res.send("🚀 API Running Safe Mode");
+    res.send("🚀 Secure Multi-Bot API Running");
 });
 
 /* =========================
-   MONGODB
+   DB CONNECT
 ========================= */
-
 const mongoURI =
 "mongodb+srv://meena:uniokesugcoms@cluster0.i2uggah.mongodb.net/verifydb?retryWrites=true&w=majority";
 
@@ -28,17 +26,12 @@ mongoose.connect(mongoURI, {
 }).catch(() => {});
 
 mongoose.connection.on('connected', () => {
-    console.log("💾 MongoDB Connected");
-});
-
-mongoose.connection.on('error', (err) => {
-    console.log("❌ MongoDB Error:", err.message);
+    console.log("💾 Mongo Connected");
 });
 
 /* =========================
-   USER SCHEMA
+   USER MODEL
 ========================= */
-
 const userSchema = new mongoose.Schema({
     tgId: String,
     botUsername: String,
@@ -48,33 +41,15 @@ const userSchema = new mongoose.Schema({
     createdAt: { type: Date, default: Date.now }
 });
 
-userSchema.index({ tgId: 1, botUsername: 1 });
+userSchema.index({ tgId: 1, botUsername: 1 }, { unique: true });
 
 const User =
 mongoose.models.VerifiedUser ||
 mongoose.model('VerifiedUser', userSchema);
 
 /* =========================
-   LOCK SCHEMA (ANTI RETRY BUG FIX)
-========================= */
-
-const lockSchema = new mongoose.Schema({
-    deviceKey: String,
-    botUsername: String,
-    status: { type: String, default: "pending" },
-    createdAt: { type: Date, default: Date.now }
-});
-
-lockSchema.index({ deviceKey: 1, botUsername: 1 }, { unique: true });
-
-const Lock =
-mongoose.models.VerifyLock ||
-mongoose.model('VerifyLock', lockSchema);
-
-/* =========================
    ALERT SAFE
 ========================= */
-
 async function sendAlert(token, chatId, text) {
     try {
         await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
@@ -82,30 +57,45 @@ async function sendAlert(token, chatId, text) {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ chat_id: chatId, text })
         });
-    } catch (e) {}
+    } catch {}
 }
 
 /* =========================
-   VPN CHECK (SAFE)
+   VPN CHECK (STRONGER)
 ========================= */
-
 async function checkIP(ip) {
     try {
-        const res = await fetch(`http://ip-api.com/json/${ip}?fields=proxy,hosting`);
+        const res = await fetch(
+            `http://ip-api.com/json/${ip}?fields=status,proxy,hosting,isp,org,country`
+        );
         const data = await res.json();
 
         return {
-            vpn: data.proxy || data.hosting || false
+            vpn:
+                data.proxy ||
+                data.hosting ||
+                (data.org && (
+                    data.org.toLowerCase().includes("vpn") ||
+                    data.org.toLowerCase().includes("proxy") ||
+                    data.org.toLowerCase().includes("hosting")
+                )),
+
+            isp: data.isp || "UNKNOWN",
+            country: data.country || "UNKNOWN"
         };
+
     } catch {
-        return { vpn: false };
+        return {
+            vpn: false,
+            isp: "UNKNOWN",
+            country: "UNKNOWN"
+        };
     }
 }
 
 /* =========================
    MAIN API
 ========================= */
-
 app.get('/api', async (req, res) => {
 
     try {
@@ -128,27 +118,42 @@ app.get('/api', async (req, res) => {
         const deviceKey = `${ip}_${browser_id}`;
 
         /* =========================
-           STEP 1: LOCK SYSTEM (ANTI RETRY BUG)
+           🔥 VPN BLOCK (HARD LAYER)
         ========================= */
+        const ipData = await checkIP(ip);
 
-        try {
-            await Lock.findOneAndUpdate(
-                { deviceKey, botUsername: botusername },
-                { $setOnInsert: { deviceKey, botUsername: botusername } },
-                { upsert: true, new: true }
-            );
-        } catch (e) {}
+        if (ipData.vpn) {
+            return res.json({
+                status: 'fail',
+                message: '🚫 VPN/Proxy Detected. Please disable VPN and try again.'
+            });
+        }
 
         /* =========================
-           STEP 2: CHECK EXISTING USER (STRICT)
+           DEVICE CONFLICT (BOT SAFE)
         ========================= */
-
-        const exists = await User.findOne({
-            botUsername: botusername,
-            deviceKey: deviceKey
+        const deviceConflict = await User.findOne({
+            botUsername,
+            deviceKey,
+            tgId: { $ne: tg_id }
         });
 
-        if (exists) {
+        if (deviceConflict) {
+            return res.json({
+                status: 'fail',
+                message: '🚫 This device already used in this bot'
+            });
+        }
+
+        /* =========================
+           EXISTING USER CHECK
+        ========================= */
+        const existing = await User.findOne({
+            tgId: tg_id,
+            botUsername
+        });
+
+        if (existing) {
             return res.json({
                 status: 'pass',
                 message: '✅ Already Verified'
@@ -156,41 +161,28 @@ app.get('/api', async (req, res) => {
         }
 
         /* =========================
-           STEP 3: VPN CHECK (OPTIONAL SAFE)
+           SAVE USER SAFE
         ========================= */
-
-        const ipData = await checkIP(ip);
-
-        if (ipData.vpn) {
-            try {
-                await sendAlert(
-                    bottoken,
-                    tg_id,
-                    "⚠️ VPN DETECTED"
-                );
-            } catch {}
-        }
-
-        /* =========================
-           STEP 4: SAVE USER (CRASH FREE)
-        ========================= */
-
         try {
-            await User.create({
-                tgId: tg_id,
-                botUsername: botusername,
-                deviceKey,
-                ip,
-                vpn: ipData.vpn
-            });
-        } catch (e) {
-            // ignore duplicate crash
-        }
+            await User.updateOne(
+                { tgId: tg_id, botUsername },
+                {
+                    $setOnInsert: {
+                        tgId: tg_id,
+                        botUsername,
+                        deviceKey,
+                        ip,
+                        vpn: false,
+                        createdAt: new Date()
+                    }
+                },
+                { upsert: true }
+            );
+        } catch {}
 
         /* =========================
            SUCCESS ALERT
         ========================= */
-
         try {
             await sendAlert(
                 bottoken,
@@ -201,7 +193,7 @@ app.get('/api', async (req, res) => {
 
         return res.json({
             status: 'pass',
-            message: '🎉 User Verified Successfully'
+            message: '🎉 Verified Successfully'
         });
 
     } catch (err) {
@@ -210,13 +202,9 @@ app.get('/api', async (req, res) => {
 
         return res.json({
             status: 'fail',
-            message: '⚠️ Please verify again'
+            message: '⚠️ Please try again'
         });
     }
 });
-
-/* =========================
-   EXPORT
-========================= */
 
 module.exports = app;
