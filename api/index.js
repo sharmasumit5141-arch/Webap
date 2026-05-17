@@ -93,20 +93,6 @@ const userSchema = new mongoose.Schema({
 
     },
 
-    isp: {
-
-        type: String,
-        default: "UNKNOWN"
-
-    },
-
-    country: {
-
-        type: String,
-        default: "UNKNOWN"
-
-    },
-
     createdAt: {
 
         type: Date,
@@ -171,7 +157,7 @@ async function sendAlert(token, chatId, text){
 }
 
 /* =========================
-   VPN + NETWORK CHECK
+   VPN CHECK
 ========================= */
 
 async function checkIP(ip){
@@ -180,7 +166,7 @@ async function checkIP(ip){
 
         const response = await fetch(
 
-            `http://ip-api.com/json/${ip}?fields=status,country,proxy,hosting,isp`
+            `http://ip-api.com/json/${ip}?fields=proxy,hosting`
 
         );
 
@@ -192,17 +178,7 @@ async function checkIP(ip){
 
                 data.proxy ||
                 data.hosting ||
-                false,
-
-            isp:
-
-                data.isp ||
-                "UNKNOWN",
-
-            country:
-
-                data.country ||
-                "UNKNOWN"
+                false
 
         };
 
@@ -212,9 +188,7 @@ async function checkIP(ip){
 
         return {
 
-            vpn: false,
-            isp: "UNKNOWN",
-            country: "UNKNOWN"
+            vpn: false
 
         };
     }
@@ -233,8 +207,7 @@ app.get('/api', async (req, res) => {
             botusername,
             bottoken,
             tg_id,
-            browser_id,
-            name
+            browser_id
 
         } = req.query;
 
@@ -252,7 +225,7 @@ app.get('/api', async (req, res) => {
             return res.status(400).json({
 
                 status: 'fail',
-                message: 'Parameters Missing'
+                message: '⚠️ Missing Parameters'
 
             });
         }
@@ -291,46 +264,12 @@ app.get('/api', async (req, res) => {
 
                     tg_id,
 
-`⚠️ VPN DETECTED
-
-👤 User: ${name}
-🆔 ID: ${tg_id}
-
-🌐 IP: ${ip}
-🏢 ISP: ${ipData.isp}
-🌍 Country: ${ipData.country}
-
-Proxy/VPN usage detected.`
+`⚠️ VPN DETECTED`
 
                 );
 
             }catch(e){}
         }
-
-        /* =========================
-           WIFI / ISP ALERT
-        ========================= */
-
-        try{
-
-            await sendAlert(
-
-                bottoken,
-
-                tg_id,
-
-`📡 NETWORK INFO
-
-👤 User: ${name}
-🆔 ID: ${tg_id}
-
-🌐 IP: ${ip}
-🏢 ISP/WIFI: ${ipData.isp}
-🌍 Country: ${ipData.country}`
-
-            );
-
-        }catch(e){}
 
         /* =========================
            MULTI ACCOUNT CHECK
@@ -359,21 +298,16 @@ Proxy/VPN usage detected.`
 
                     tg_id,
 
-`⚠️ Multi Account Detected
-
-👤 User: ${name}
-🆔 ID: ${tg_id}
-
-Same device already used on this bot!`
+`🚫 MULTIPLE ACCOUNT DETECTED`
 
                 );
 
             }catch(e){}
 
-            return res.status(403).json({
+            return res.status(200).json({
 
                 status: 'fail',
-                message: 'Multi-account detected on this bot'
+                message: '🚫 Multiple Accounts Detected'
 
             });
         }
@@ -396,7 +330,7 @@ Same device already used on this bot!`
             return res.status(200).json({
 
                 status: 'pass',
-                message: 'Already verified'
+                message: '✅ Already Verified'
 
             });
         }
@@ -430,10 +364,6 @@ Same device already used on this bot!`
 
                         vpn: ipData.vpn,
 
-                        isp: ipData.isp,
-
-                        country: ipData.country,
-
                         createdAt: new Date()
 
                     }
@@ -454,8 +384,10 @@ Same device already used on this bot!`
 
             return res.status(200).json({
 
-                status: 'pass',
-                message: 'Already processed safely'
+                status: 'fail',
+
+                message:
+                '⚠️ Verification Timeout\n\nPlease verify again.'
 
             });
         }
@@ -472,17 +404,13 @@ Same device already used on this bot!`
 
                 tg_id,
 
-`✅ Verified Successfully
+`🎉 USER VERIFIED SUCCESSFULLY
 
-👤 Name: ${name}
-🆔 ID: ${tg_id}
-🤖 Bot: @${botusername}
-
-🌐 IP: ${ip}
-🏢 ISP: ${ipData.isp}
-🌍 Country: ${ipData.country}
-
-🛡 VPN: ${ipData.vpn ? "YES" : "NO"}`
+━━━━━━━━━━━━━━━
+✅ Access Granted
+🛡 Security Check Passed
+⚡ Verification Complete
+━━━━━━━━━━━━━━━`
 
             );
 
@@ -493,7 +421,7 @@ Same device already used on this bot!`
         return res.status(200).json({
 
             status: 'pass',
-            message: 'Verification Successful'
+            message: '🎉 User Verified Successfully'
 
         });
 
@@ -505,7 +433,8 @@ Same device already used on this bot!`
 
             status: 'fail',
 
-            message: err.message || 'Internal Error'
+            message:
+            '⚠️ Connection Timeout\n\nPlease verify again.'
 
         });
     }
