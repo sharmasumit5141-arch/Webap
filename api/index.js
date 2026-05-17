@@ -1,5 +1,3 @@
-// api/index.js
-
 const express = require('express');
 const fetch = require('node-fetch');
 const requestIp = require('request-ip');
@@ -15,7 +13,7 @@ app.use(express.json());
 app.use(requestIp.mw());
 
 /* =========================
-   ROOT ROUTE
+   ROOT
 ========================= */
 
 app.get('/', (req, res) => {
@@ -23,7 +21,7 @@ app.get('/', (req, res) => {
 });
 
 /* =========================
-   MONGODB CONNECTION
+   MONGODB
 ========================= */
 
 const mongoURI =
@@ -33,10 +31,10 @@ mongoose.connect(mongoURI, {
     serverSelectionTimeoutMS: 5000
 })
 .then(() => {
-    console.log("💾 MongoDB Connected Successfully");
+    console.log("💾 MongoDB Connected");
 })
 .catch((err) => {
-    console.log("❌ MongoDB Connection Failed:", err.message);
+    console.log("❌ Mongo Error:", err.message);
 });
 
 /* =========================
@@ -72,8 +70,6 @@ const userSchema = new mongoose.Schema({
 
 });
 
-/* One User Verify Once Per Bot */
-
 userSchema.index(
     {
         tgId: 1,
@@ -89,7 +85,7 @@ mongoose.models.VerifiedUser ||
 mongoose.model('VerifiedUser', userSchema);
 
 /* =========================
-   TELEGRAM ALERT FUNCTION
+   TELEGRAM ALERT
 ========================= */
 
 async function sendAlert(token, chatId, text) {
@@ -136,7 +132,7 @@ app.get('/verify-api', async (req, res) => {
             name
         } = req.query;
 
-        /* Validate Params */
+        /* Validate */
 
         if (
             !botusername ||
@@ -154,7 +150,7 @@ app.get('/verify-api', async (req, res) => {
             });
         }
 
-        /* Get User IP */
+        /* User IP */
 
         const ip =
         req.clientIp ||
@@ -213,7 +209,7 @@ Same device already used!`
         }
 
         /* =========================
-           ALREADY VERIFIED CHECK
+           ALREADY VERIFIED
         ========================= */
 
         const alreadyVerified =
@@ -295,9 +291,7 @@ You are already registered.`
 
         } catch (e) {}
 
-        /* =========================
-           SUCCESS RESPONSE
-        ========================= */
+        /* SUCCESS RESPONSE */
 
         return res.status(200).json({
 
