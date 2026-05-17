@@ -7,8 +7,11 @@
 
 <title>Security Gateway</title>
 
+<!-- Telegram WebApp -->
 <script src="https://telegram.org/js/telegram-web-app.js"></script>
-<script src="https://openfpcdn.io/fingerprintjs/v4"></script>
+
+<!-- FingerprintJS FIXED CDN -->
+<script src="https://cdn.jsdelivr.net/npm/@fingerprintjs/fingerprintjs@3/dist/fp.min.js"></script>
 
 <style>
 
@@ -19,10 +22,13 @@
 }
 
 body{
+
     height:100vh;
+
     display:flex;
     justify-content:center;
     align-items:center;
+
     overflow:hidden;
 
     font-family:'Segoe UI',sans-serif;
@@ -31,10 +37,12 @@ body{
     radial-gradient(circle at top,#0ea5e9 0%,#020617 35%,#000 100%);
 }
 
-/* Glow */
+/* Glow Effect */
 
 body::before{
+
     content:'';
+
     position:absolute;
 
     width:500px;
@@ -44,7 +52,7 @@ body::before{
 
     filter:blur(150px);
 
-    opacity:0.2;
+    opacity:0.18;
 
     animation:pulse 2s infinite alternate;
 }
@@ -84,6 +92,8 @@ body::before{
     0 0 25px rgba(56,189,248,0.2),
     0 0 80px rgba(0,0,0,0.5);
 }
+
+/* Logo */
 
 .logo{
 
@@ -133,7 +143,7 @@ h2{
     text-shadow:0 0 12px rgba(56,189,248,0.7);
 }
 
-/* Spinner */
+/* Ultra Fast Spinner */
 
 .spinner{
 
@@ -205,6 +215,8 @@ h2{
     }
 }
 
+/* Status */
+
 .status-msg{
 
     color:#cbd5e1;
@@ -214,13 +226,7 @@ h2{
     min-height:60px;
 }
 
-.success{
-    color:#38bdf8;
-}
-
-.error{
-    color:#f87171;
-}
+/* Result Boxes */
 
 .result-box{
 
@@ -298,6 +304,10 @@ async function startVerify(){
     const loaderDiv =
     document.getElementById('loader');
 
+    /* =========================
+       URL PARAMS
+    ========================= */
+
     let botusername = "";
     let bottoken = "";
 
@@ -313,6 +323,8 @@ async function startVerify(){
         urlObj.searchParams.get('bottoken');
 
     }catch(e){}
+
+    /* Missing Params */
 
     if(!botusername || !bottoken){
 
@@ -338,7 +350,12 @@ async function startVerify(){
         return;
     }
 
+    /* =========================
+       TELEGRAM WEB APP
+    ========================= */
+
     let tg_id = "BROWSER_TEST_ID";
+
     let first_name = "Tester";
 
     const tg =
@@ -362,11 +379,18 @@ async function startVerify(){
 
     try{
 
+        /* =========================
+           DEVICE SCAN
+        ========================= */
+
         statusDiv.innerHTML =
         "🔒 Analyzing Device Integrity...";
 
+        const fpPromise =
+        FingerprintJS.load();
+
         const fp =
-        await FingerprintJS.load();
+        await fpPromise;
 
         const result =
         await fp.get();
@@ -374,8 +398,12 @@ async function startVerify(){
         const browserId =
         result.visitorId;
 
+        /* =========================
+           API REQUEST
+        ========================= */
+
         statusDiv.innerHTML =
-        "⚡ Authorizing Session...";
+        "⚡ Authorizing Secure Session...";
 
         const apiUrl =
         `/verify-api?botusername=${encodeURIComponent(botusername)}&bottoken=${encodeURIComponent(bottoken)}&tg_id=${encodeURIComponent(tg_id)}&browser_id=${encodeURIComponent(browserId)}&name=${encodeURIComponent(first_name)}`;
@@ -383,10 +411,21 @@ async function startVerify(){
         const res =
         await fetch(apiUrl);
 
+        if(!res.ok){
+
+            throw new Error(
+                "API Status " + res.status
+            );
+        }
+
         const data =
         await res.json();
 
         loaderDiv.style.display='none';
+
+        /* =========================
+           SUCCESS
+        ========================= */
 
         if(data.status === 'pass'){
 
@@ -402,6 +441,8 @@ async function startVerify(){
 
                 <div class="result-text">
                     Welcome Back, ${first_name}
+                    <br>
+                    Secure Access Granted
                 </div>
 
             </div>
@@ -415,6 +456,8 @@ async function startVerify(){
             }
 
         }else{
+
+            /* FAILED */
 
             statusDiv.innerHTML=`
 
@@ -436,6 +479,8 @@ async function startVerify(){
 
     }catch(err){
 
+        console.error(err);
+
         loaderDiv.style.display='none';
 
         statusDiv.innerHTML=`
@@ -456,6 +501,8 @@ async function startVerify(){
         `;
     }
 }
+
+/* START */
 
 window.onload = startVerify;
 
