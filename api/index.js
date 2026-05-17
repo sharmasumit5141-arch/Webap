@@ -1,3 +1,5 @@
+// api/index.js
+
 const express = require('express');
 const fetch = require('node-fetch');
 const requestIp = require('request-ip');
@@ -13,20 +15,28 @@ app.use(express.json());
 app.use(requestIp.mw());
 
 /* =========================
+   ROOT ROUTE
+========================= */
+
+app.get('/', (req, res) => {
+    res.send("🚀 Verification API Running");
+});
+
+/* =========================
    MONGODB CONNECTION
 ========================= */
 
 const mongoURI =
 "mongodb+srv://meena:uniokesugcoms@cluster0.i2uggah.mongodb.net/verifydb?retryWrites=true&w=majority";
 
-mongoose.connect(mongoURI,{
-    serverSelectionTimeoutMS:5000
+mongoose.connect(mongoURI, {
+    serverSelectionTimeoutMS: 5000
 })
-.then(()=>{
+.then(() => {
     console.log("💾 MongoDB Connected Successfully");
 })
-.catch((err)=>{
-    console.log("❌ MongoDB Connection Failed:",err.message);
+.catch((err) => {
+    console.log("❌ MongoDB Connection Failed:", err.message);
 });
 
 /* =========================
@@ -35,98 +45,88 @@ mongoose.connect(mongoURI,{
 
 const userSchema = new mongoose.Schema({
 
-    tgId:{
-        type:String,
-        required:true
+    tgId: {
+        type: String,
+        required: true
     },
 
-    botUsername:{
-        type:String,
-        required:true
+    botUsername: {
+        type: String,
+        required: true
     },
 
-    deviceKey:{
-        type:String,
-        required:true,
-        unique:true
+    deviceKey: {
+        type: String,
+        required: true,
+        unique: true
     },
 
-    ip:{
-        type:String
+    ip: {
+        type: String
     },
 
-    createdAt:{
-        type:Date,
-        default:Date.now
+    createdAt: {
+        type: Date,
+        default: Date.now
     }
 
 });
 
-/* One User One Verify Per Bot */
+/* One User Verify Once Per Bot */
 
 userSchema.index(
     {
-        tgId:1,
-        botUsername:1
+        tgId: 1,
+        botUsername: 1
     },
     {
-        unique:true
+        unique: true
     }
 );
 
 const User =
 mongoose.models.VerifiedUser ||
-mongoose.model('VerifiedUser',userSchema);
+mongoose.model('VerifiedUser', userSchema);
 
 /* =========================
    TELEGRAM ALERT FUNCTION
 ========================= */
 
-async function sendAlert(token,chatId,text){
+async function sendAlert(token, chatId, text) {
 
-    try{
+    try {
 
         const url =
         `https://api.telegram.org/bot${token}/sendMessage`;
 
-        await fetch(url,{
+        await fetch(url, {
 
-            method:'POST',
+            method: 'POST',
 
-            headers:{
-                'Content-Type':'application/json'
+            headers: {
+                'Content-Type': 'application/json'
             },
 
-            body:JSON.stringify({
-                chat_id:chatId,
-                text:text
+            body: JSON.stringify({
+                chat_id: chatId,
+                text: text
             })
 
         });
 
-    }catch(e){
+    } catch (e) {
 
-        console.log("⚠ Telegram Alert Error:",e.message);
+        console.log("⚠ Telegram Error:", e.message);
     }
 }
-
-/* =========================
-   ROOT ROUTE
-========================= */
-
-app.get('/',(req,res)=>{
-
-    res.send("🚀 Verification Server Running");
-
-});
 
 /* =========================
    VERIFY API
 ========================= */
 
-app.get('/verify-api',async(req,res)=>{
+app.get('/verify-api', async (req, res) => {
 
-    try{
+    try {
 
         const {
             botusername,
@@ -136,24 +136,25 @@ app.get('/verify-api',async(req,res)=>{
             name
         } = req.query;
 
-        /* Validation */
+        /* Validate Params */
 
-        if(
+        if (
             !botusername ||
             !bottoken ||
             !tg_id ||
             !browser_id
-        ){
+        ) {
 
             return res.status(400).json({
 
-                status:'fail',
-                message:'Parameters Missing'
+                status: 'fail',
+
+                message: 'Parameters Missing'
 
             });
         }
 
-        /* Get IP */
+        /* Get User IP */
 
         const ip =
         req.clientIp ||
@@ -173,17 +174,17 @@ app.get('/verify-api',async(req,res)=>{
         const multiAccountCheck =
         await User.findOne({
 
-            deviceKey:finalDeviceKey,
+            deviceKey: finalDeviceKey,
 
-            tgId:{
-                $ne:tg_id
+            tgId: {
+                $ne: tg_id
             }
 
         });
 
-        if(multiAccountCheck){
+        if (multiAccountCheck) {
 
-            try{
+            try {
 
                 await sendAlert(
 
@@ -200,13 +201,13 @@ Same device already used!`
 
                 );
 
-            }catch(e){}
+            } catch (e) {}
 
             return res.status(403).json({
 
-                status:'fail',
+                status: 'fail',
 
-                message:'Multi-account detected'
+                message: 'Multi-account detected'
 
             });
         }
@@ -218,15 +219,15 @@ Same device already used!`
         const alreadyVerified =
         await User.findOne({
 
-            tgId:tg_id,
+            tgId: tg_id,
 
-            botUsername:botusername
+            botUsername: botusername
 
         });
 
-        if(alreadyVerified){
+        if (alreadyVerified) {
 
-            try{
+            try {
 
                 await sendAlert(
 
@@ -242,30 +243,30 @@ You are already registered.`
 
                 );
 
-            }catch(e){}
+            } catch (e) {}
 
             return res.status(400).json({
 
-                status:'fail',
+                status: 'fail',
 
-                message:'Already registered on this bot'
+                message: 'Already registered on this bot'
 
             });
         }
 
         /* =========================
-           SAVE NEW USER
+           SAVE USER
         ========================= */
 
         const newUser = new User({
 
-            tgId:tg_id,
+            tgId: tg_id,
 
-            botUsername:botusername,
+            botUsername: botusername,
 
-            deviceKey:finalDeviceKey,
+            deviceKey: finalDeviceKey,
 
-            ip:ip
+            ip: ip
 
         });
 
@@ -275,7 +276,7 @@ You are already registered.`
            SUCCESS ALERT
         ========================= */
 
-        try{
+        try {
 
             await sendAlert(
 
@@ -292,7 +293,7 @@ You are already registered.`
 
             );
 
-        }catch(e){}
+        } catch (e) {}
 
         /* =========================
            SUCCESS RESPONSE
@@ -300,34 +301,28 @@ You are already registered.`
 
         return res.status(200).json({
 
-            status:'pass',
+            status: 'pass',
 
-            message:'Verification Successful'
+            message: 'Verification Successful'
 
         });
 
-    }catch(err){
+    } catch (err) {
 
-        console.log("❌ Verify Error:",err);
+        console.log("❌ Verify Error:", err);
 
         return res.status(500).json({
 
-            status:'fail',
+            status: 'fail',
 
-            message:err.message || 'Internal Server Error'
+            message: err.message || 'Internal Server Error'
 
         });
     }
 });
 
 /* =========================
-   SERVER START
+   EXPORT FOR VERCEL
 ========================= */
 
-const PORT = process.env.PORT || 3000;
-
-app.listen(PORT,()=>{
-
-    console.log(`🚀 Server Running On Port ${PORT}`);
-
-});
+module.exports = app;
