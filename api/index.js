@@ -1,3 +1,5 @@
+// api/index.js
+
 const express = require('express');
 const fetch = require('node-fetch');
 const requestIp = require('request-ip');
@@ -18,9 +20,7 @@ app.use(requestIp.mw());
 
 app.get('/', (req, res) => {
 
-    res.json({
-        status: "API Working"
-    });
+    res.send("🚀 API Running");
 
 });
 
@@ -31,24 +31,30 @@ app.get('/', (req, res) => {
 const mongoURI =
 "mongodb+srv://meena:uniokesugcoms@cluster0.i2uggah.mongodb.net/verifydb?retryWrites=true&w=majority";
 
+/* CONNECT */
+
 mongoose.connect(mongoURI, {
 
     serverSelectionTimeoutMS: 5000
 
-})
-.then(() => {
+});
+
+/* EVENTS */
+
+mongoose.connection.on('connected', () => {
 
     console.log("💾 MongoDB Connected");
 
-})
-.catch((err) => {
+});
 
-    console.log("❌ Mongo Error:", err.message);
+mongoose.connection.on('error', (err) => {
+
+    console.log("❌ MongoDB Error:", err);
 
 });
 
 /* =========================
-   DATABASE
+   DATABASE SCHEMA
 ========================= */
 
 const userSchema = new mongoose.Schema({
@@ -181,7 +187,7 @@ app.get('/api', async (req, res) => {
             });
         }
 
-        /* IP */
+        /* USER IP */
 
         const ip =
         req.clientIp ||
@@ -189,7 +195,7 @@ app.get('/api', async (req, res) => {
         req.socket.remoteAddress ||
         "UNKNOWN_IP";
 
-        /* Device Key */
+        /* DEVICE KEY */
 
         const finalDeviceKey =
         `${ip}_${browser_id}`;
@@ -319,6 +325,8 @@ You are already registered.`
             );
 
         }catch(e){}
+
+        /* SUCCESS RESPONSE */
 
         return res.status(200).json({
 
