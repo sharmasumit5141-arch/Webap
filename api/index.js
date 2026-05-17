@@ -35,7 +35,7 @@ const mongoURI =
 
 mongoose.connect(mongoURI, {
 
-    serverSelectionTimeoutMS: 5000
+    serverSelectionTimeoutMS: 10000
 
 });
 
@@ -261,49 +261,67 @@ Same device already used on this bot!`
 
         if(alreadyVerified){
 
-            try{
+            return res.status(200).json({
 
-                await sendAlert(
-
-                    bottoken,
-
-                    tg_id,
-
-`❌ Already Verified
-
-🤖 Bot: @${botusername}
-
-You are already registered.`
-
-                );
-
-            }catch(e){}
-
-            return res.status(400).json({
-
-                status: 'fail',
-                message: 'Already registered on this bot'
+                status: 'pass',
+                message: 'Already verified'
 
             });
         }
 
         /* =========================
-           SAVE USER
+           SAVE USER SAFE MODE
         ========================= */
 
-        const newUser = new User({
+        try{
 
-            tgId: tg_id,
+            await User.updateOne(
 
-            botUsername: botusername,
+                {
 
-            deviceKey: finalDeviceKey,
+                    tgId: tg_id,
+                    botUsername: botusername
 
-            ip: ip
+                },
 
-        });
+                {
 
-        await newUser.save();
+                    $set: {
+
+                        tgId: tg_id,
+
+                        botUsername: botusername,
+
+                        deviceKey: finalDeviceKey,
+
+                        ip: ip,
+
+                        createdAt: new Date()
+
+                    }
+
+                },
+
+                {
+
+                    upsert: true
+
+                }
+
+            );
+
+        }catch(saveErr){
+
+            console.log("Save Safe Error:", saveErr);
+
+            return res.status(200).json({
+
+                status: 'pass',
+
+                message: 'Already processed safely'
+
+            });
+        }
 
         /* =========================
            SUCCESS ALERT
@@ -339,12 +357,13 @@ You are already registered.`
 
     }catch(err){
 
-        console.log("❌ Verify Error:", err);
+        console.log("❌ FULL ERROR:", err);
 
-        return res.status(500).json({
+        return res.status(200).json({
 
             status: 'fail',
-            message: err.message || 'Internal Server Error'
+
+            message: err.message || 'Internal Error'
 
         });
     }
