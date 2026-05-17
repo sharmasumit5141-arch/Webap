@@ -3,79 +3,133 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Secure Verification</title>
-    <!-- Telegram Web App Script (ID capture karne ke liye) -->
+    <title>Secure Device Verification</title>
+    <!-- Telegram Web App Script -->
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
-    <!-- Hardware Fingerprint capture karne ke liye library -->
+    <!-- Hardware Fingerprint Script -->
     <script src="https://openfpcdn.io/fingerprintjs/v4"></script>
     <style>
-        body { font-family: Arial, sans-serif; background: #0f172a; color: white; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; }
-        .box { background: #1e293b; padding: 30px; border-radius: 12px; text-align: center; box-shadow: 0 10px 25px rgba(0,0,0,0.3); max-width: 360px; width: 100%; }
+        body { 
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
+            background: #0f172a; 
+            color: #f8fafc; 
+            display: flex; 
+            justify-content: center; 
+            align-items: center; 
+            height: 100vh; 
+            margin: 0; 
+        }
+        .box { 
+            background: #1e293b; 
+            padding: 35px; 
+            border-radius: 16px; 
+            text-align: center; 
+            box-shadow: 0 10px 30px rgba(0,0,0,0.4); 
+            max-width: 400px; 
+            width: 90%; 
+            border: 1px solid #334155;
+        }
+        h2 { margin-top: 0; font-size: 22px; color: #38bdf8; }
+        .status-msg { font-size: 16px; margin: 20px 0; line-height: 1.5; }
         .loading { color: #94a3b8; }
         .success { color: #4ade80; font-weight: bold; }
         .error { color: #f87171; font-weight: bold; }
+        .info-box {
+            background: #0f172a;
+            padding: 12px;
+            border-radius: 8px;
+            font-size: 12px;
+            color: #64748b;
+            text-align: left;
+            word-break: break-all;
+            margin-top: 15px;
+            border: 1px solid #1e293b;
+        }
     </style>
 </head>
 <body>
 
     <div class="box">
-        <div id="status" class="loading">🔒 Fetching Telegram Identity & Securing Device...</div>
+        <h2>Security Gateway</h2>
+        <div id="status" class="status-msg loading">🔒 Initializing secure anti-bot verification...</div>
+        <div id="debug-info" class="info-box">System checking...</div>
     </div>
 
     <script>
         async function startVerify() {
-            // Telegram Web App initialize karna
-            const tg = window.Telegram.WebApp;
-            tg.ready();
+            const statusDiv = document.getElementById('status');
+            const debugDiv = document.getElementById('debug-info');
 
-            // Telegram user ka data automatically nikalna
-            const initDataUnsafe = tg.initDataUnsafe;
-            
-            if (!initDataUnsafe || !initDataUnsafe.user) {
-                document.getElementById('status').className = 'error';
-                document.getElementById('status').innerText = "❌ Please open this link inside Telegram App!";
-                return;
-            }
-
-            const tg_id = initDataUnsafe.user.id.toString();
-            const first_name = initDataUnsafe.user.first_name || "User";
-
-            // URL se botusername aur bottoken nikalna
+            // 1. URL Se Parameters Nikalna
             const params = new URLSearchParams(window.location.search);
             const botusername = params.get('botusername');
             const bottoken = params.get('bottoken');
 
             if (!botusername || !bottoken) {
-                document.getElementById('status').className = 'error';
-                document.getElementById('status').innerText = "❌ Bot parameters missing in Web App URL!";
+                statusDiv.className = 'status-msg error';
+                statusDiv.innerText = "❌ Verification Failed!";
+                debugDiv.innerHTML = "<b>Error:</b> Bot parameters (botusername or bottoken) are missing in the URL query.";
                 return;
             }
 
+            // 2. Telegram Web App Check & Fallback Handling
+            let tg_id = "";
+            let first_name = "";
+            
+            const tg = window.Telegram ? window.Telegram.WebApp : null;
+            
+            if (tg && tg.initDataUnsafe && tg.initDataUnsafe.user) {
+                // Agar Telegram ke andar khula hai
+                tg.ready();
+                tg_id = tg.initDataUnsafe.user.id.toString();
+                first_name = tg.initDataUnsafe.user.first_name || "Telegram User";
+                debugDiv.innerHTML = `<b>Mode:</b> Telegram Mini App<br><b>User:</b> ${first_name} (${tg_id})`;
+            } else {
+                // Agar normal browser/desktop me khula hai (Testing ya bypass mode)
+                // Browser se automatic ID nahi mil sakti, toh URL me agar &tg_id= ho toh utha lega, nahi toh dummy dega testing ke liye
+                tg_id = params.get('tg_id') || "DESKTOP_TEST_USER";
+                first_name = "Browser Tester";
+                debugDiv.innerHTML = `<b>Mode:</b> External Browser Detected<br><b>Using ID:</b> ${tg_id}<br><span style='color:#e2e8f0;'>[Note: Live production me ise hamesha Telegram ke andar hi open karein]</span>`;
+            }
+
+            statusDiv.innerText = "🔒 Capturing hardware fingerprint...";
+
             try {
-                // Browser ID capture karna (Anti-Rotation)
+                // 3. Browser Hardware Identity Capture Karna (Anti-Rotation)
                 const fp = await FingerprintJS.load();
                 const result = await fp.get();
                 const browserId = result.visitorId;
 
-                // Alag se banayi gayi Backend API (/verify-api) ko hit karna
-                const res = await fetch(`/verify-api?botusername=${botusername}&bottoken=${bottoken}&tg_id=${tg_id}&browser_id=${browserId}&name=${encodeURIComponent(first_name)}`);
+                statusDiv.innerText = "⚡ Validating details with secure database...";
+
+                // 4. Backend API Call
+                const apiUrl = `/verify-api?botusername=${encodeURIComponent(botusername)}&bottoken=${encodeURIComponent(bottoken)}&tg_id=${encodeURIComponent(tg_id)}&browser_id=${encodeURIComponent(browserId)}&name=${encodeURIComponent(first_name)}`;
+                
+                const res = await fetch(apiUrl);
                 const data = await res.json();
 
                 if (data.status === 'pass') {
-                    document.getElementById('status').className = 'success';
-                    document.getElementById('status').innerHTML = `✅ Verified Successfully!<br><span style='font-size:13px;color:#94a3b8;'>Welcome ${first_name}. Closing...</span>`;
+                    statusDiv.className = 'status-msg success';
+                    statusDiv.innerHTML = `✅ Verified Successfully!<br><span style='font-size:14px;color:#94a3b8;'>Welcome ${first_name}. Access Granted.</span>`;
                     
-                    // Success ke 2 second baad automatic webapp close ho jaye
-                    setTimeout(() => { tg.close(); }, 2000);
+                    // Agar Telegram app hai toh 2 second me close ho jaye
+                    if (tg && window.Telegram.WebApp) {
+                        setTimeout(() => { tg.close(); }, 2000);
+                    }
                 } else {
-                    document.getElementById('status').className = 'error';
-                    document.getElementById('status').innerText = "❌ Failed: " + data.message;
+                    statusDiv.className = 'status-msg error';
+                    statusDiv.innerText = "❌ Failed: " + data.message;
                 }
+
             } catch (err) {
-                document.getElementById('status').className = 'error';
-                document.getElementById('status').innerText = "❌ Connection Error!";
+                console.error(err);
+                statusDiv.className = 'status-msg error';
+                statusDiv.innerText = "❌ Verification Error!";
+                debugDiv.innerHTML += `<br><br><b style='color:#f87171;'>API Error:</b> Connection refused or database down.`;
             }
         }
+
+        // Window load hote hi run karein
         window.onload = startVerify;
     </script>
 </body>
