@@ -1,3 +1,5 @@
+// api/index.js
+
 const express = require('express');
 const fetch = require('node-fetch');
 const requestIp = require('request-ip');
@@ -5,214 +7,218 @@ const mongoose = require('mongoose');
 
 const app = express();
 
+/* =========================
+MIDDLEWARE
+========================= */
+
 app.use(express.json());
 app.use(requestIp.mw());
 
 /* =========================
-   ROOT
+ROOT
 ========================= */
+
 app.get('/', (req, res) => {
     res.send("🚀 API Running");
 });
 
 /* =========================
-   DB SAFE CONNECT
+MONGODB
 ========================= */
+
 const mongoURI =
 "mongodb+srv://meena:uniokesugcoms@cluster0.i2uggah.mongodb.net/verifydb?retryWrites=true&w=majority";
 
 mongoose.connect(mongoURI, {
-    serverSelectionTimeoutMS: 8000
-}).catch(() => {});
+    serverSelectionTimeoutMS: 10000
+});
 
 mongoose.connection.on('connected', () => {
     console.log("💾 MongoDB Connected");
 });
 
+mongoose.connection.on('error', (err) => {
+    console.log("❌ MongoDB Error:", err);
+});
+
 /* =========================
-   MODEL
+SCHEMA
 ========================= */
+
 const userSchema = new mongoose.Schema({
-    tgId: String,
-    botUsername: String,
-    deviceKey: String,
-    ip: String,
-    vpn: Boolean,
+    tgId: { type: String, required: true },
+    botUsername: { type: String, required: true },
+    deviceKey: { type: String, required: true },
+    ip: { type: String },
+    vpn: { type: Boolean, default: false },
     createdAt: { type: Date, default: Date.now }
 });
 
-userSchema.index({ tgId: 1, botUsername: 1 }, { unique: true });
+userSchema.index(
+    { tgId: 1, botUsername: 1 },
+    { unique: true }
+);
 
 const User =
 mongoose.models.VerifiedUser ||
 mongoose.model('VerifiedUser', userSchema);
 
 /* =========================
-   SAFE ALERT SYSTEM
+TELEGRAM ALERT
 ========================= */
-async function sendAlert(token, chatId, text) {
-    try {
+
+async function sendAlert(token, chatId, text){
+    try{
         await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ chat_id: chatId, text })
+            body: JSON.stringify({
+                chat_id: chatId,
+                text: text
+            })
         });
-    } catch {}
+    }catch(e){
+        console.log("⚠ Telegram Error:", e.message);
+    }
 }
 
 /* =========================
-   IP CHECK
+VPN CHECK
 ========================= */
-async function checkIP(ip) {
-    try {
-        const res = await fetch(
-            `http://ip-api.com/json/${ip}?fields=proxy,hosting,isp,country`
+
+async function checkIP(ip){
+    try{
+        const response = await fetch(
+            `http://ip-api.com/json/${ip}?fields=proxy,hosting`
         );
-        const data = await res.json();
+        const data = await response.json();
 
         return {
-            vpn: Boolean(data.proxy || data.hosting),
-            isp: data.isp || "UNKNOWN",
-            country: data.country || "UNKNOWN"
+            vpn: data.proxy || data.hosting || false
         };
-    } catch {
-        return { vpn: false, isp: "UNKNOWN", country: "UNKNOWN" };
+
+    }catch(e){
+        console.log("IP Check Error:", e.message);
+        return { vpn: false };
     }
 }
 
 /* =========================
-   MAIN API
+MAIN API
 ========================= */
+
 app.get('/api', async (req, res) => {
 
-    try {
+try{
 
-        const { botusername, bottoken, tg_id, browser_id } = req.query;
+    const { botusername, bottoken, tg_id, browser_id } = req.query;
 
-        if (!botusername || !bottoken || !tg_id || !browser_id) {
-            return res.json({
-                status: 'fail',
-                message: 'Missing parameters'
-            });
-        }
-
-        const ip =
-            req.clientIp ||
-            req.headers['x-forwarded-for'] ||
-            req.socket.remoteAddress ||
-            "0.0.0.0";
-
-        const deviceKey = `${ip}_${browser_id}`;
-
-        /* =========================
-           VPN CHECK
-        ========================= */
-        const ipData = await checkIP(ip);
-
-        if (ipData.vpn) {
-            sendAlert(
-                bottoken,
-                tg_id,
-                "⚠️ VPN DETECTED (Access Monitored)"
-            );
-        }
-
-        /* =========================
-           DEVICE CONFLICT ALERT
-        ========================= */
-        const conflict = await User.findOne({
-            deviceKey,
-            botUsername,
-            tgId: { $ne: tg_id }
-        });
-
-        if (conflict) {
-
-            sendAlert(
-                bottoken,
-                tg_id,
-                "🚫 Device already used on another account"
-            );
-
-            return res.json({
-                status: 'fail',
-                message: 'Device already used'
-            });
-        }
-
-        /* =========================
-           ALREADY VERIFIED ALERT
-        ========================= */
-        const exists = await User.findOne({
-            tgId: tg_id,
-            botUsername
-        });
-
-        if (exists) {
-
-            sendAlert(
-                bottoken,
-                tg_id,
-                "ℹ️ You are already verified"
-            );
-
-            return res.json({
-                status: 'pass',
-                message: 'Already Verified'
-            });
-        }
-
-        /* =========================
-           SAVE SAFE
-        ========================= */
-        try {
-            await User.updateOne(
-                { tgId: tg_id, botUsername },
-                {
-                    $set: {
-                        tgId: tg_id,
-                        botUsername,
-                        deviceKey,
-                        ip,
-                        vpn: ipData.vpn,
-                        createdAt: new Date()
-                    }
-                },
-                { upsert: true }
-            );
-        } catch {}
-
-        /* =========================
-           SUCCESS ALERT (MAIN)
-        ========================= */
-        sendAlert(
-            bottoken,
-            tg_id,
-            `🎉 VERIFIED SUCCESSFULLY
-
-🛡 Access Granted
-🌐 Country: ${ipData.country}
-📡 ISP: ${ipData.isp}`
-        );
-
-        /* =========================
-           RESPONSE
-        ========================= */
-        return res.json({
-            status: 'pass',
-            message: '🎉 User Verified Successfully'
-        });
-
-    } catch (err) {
-
-        console.log("ERROR:", err.message);
-
-        /* ALWAYS SAFE */
-        return res.json({
-            status: 'pass',
-            message: '🎉 User Verified Successfully'
+    if(!botusername || !bottoken || !tg_id || !browser_id){
+        return res.status(400).json({
+            status: 'fail',
+            message: '⚠️ Missing Parameters'
         });
     }
+
+    const ip =
+        req.clientIp ||
+        req.headers['x-forwarded-for'] ||
+        req.socket.remoteAddress ||
+        "UNKNOWN_IP";
+
+    const finalDeviceKey = `${ip}_${browser_id}`;
+
+    const ipData = await checkIP(ip);
+
+    /* VPN ALERT */
+    if(ipData.vpn){
+        sendAlert(bottoken, tg_id, "⚠️ VPN DETECTED");
+    }
+
+    /* MULTI ACCOUNT CHECK */
+    const multiAccountCheck = await User.findOne({
+        deviceKey: finalDeviceKey,
+        botUsername: botusername,
+        tgId: { $ne: tg_id }
+    });
+
+    if(multiAccountCheck){
+        sendAlert(bottoken, tg_id, "🚫 MULTIPLE ACCOUNT DETECTED");
+
+        return res.status(200).json({
+            status: 'fail',
+            message: '🚫 Multiple Accounts Detected'
+        });
+    }
+
+    /* ALREADY VERIFIED */
+    const alreadyVerified = await User.findOne({
+        tgId: tg_id,
+        botUsername: botusername
+    });
+
+    if(alreadyVerified){
+        return res.status(200).json({
+            status: 'pass',
+            message: '✅ Already Verified'
+        });
+    }
+
+    /* SAVE USER */
+    try{
+        await User.updateOne(
+            { tgId: tg_id, botUsername: botusername },
+            {
+                $set: {
+                    tgId: tg_id,
+                    botUsername: botusername,
+                    deviceKey: finalDeviceKey,
+                    ip: ip,
+                    vpn: ipData.vpn,
+                    createdAt: new Date()
+                }
+            },
+            { upsert: true }
+        );
+
+    }catch(saveErr){
+
+        console.log("Save Error:", saveErr);
+
+        // 🔥 DIRECT FAIL
+        return res.status(200).json({
+            status: 'fail',
+            message: '❌ Verification Failed'
+        });
+    }
+
+    /* SUCCESS ALERT */
+    sendAlert(
+        bottoken,
+        tg_id,
+`🎉 USER VERIFIED SUCCESSFULLY`
+    );
+
+    return res.status(200).json({
+        status: 'pass',
+        message: '🎉 User Verified Successfully'
+    });
+
+}catch(err){
+
+    console.log("❌ ERROR:", err);
+
+    // 🔥 DIRECT FAIL (NO RETRY MESSAGE)
+    return res.status(200).json({
+        status: 'fail',
+        message: '❌ Verification Failed'
+    });
+}
+
 });
+
+/* =========================
+EXPORT
+========================= */
 
 module.exports = app;
