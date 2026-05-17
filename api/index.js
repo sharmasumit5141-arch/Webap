@@ -73,11 +73,12 @@ const userSchema = new mongoose.Schema({
 
     },
 
+    /* FIXED */
+
     deviceKey: {
 
         type: String,
-        required: true,
-        unique: true
+        required: true
 
     },
 
@@ -96,7 +97,7 @@ const userSchema = new mongoose.Schema({
 
 });
 
-/* One Verify Per Bot */
+/* ONE VERIFY PER BOT */
 
 userSchema.index(
 
@@ -168,7 +169,7 @@ app.get('/api', async (req, res) => {
 
         } = req.query;
 
-        /* Validate */
+        /* VALIDATE */
 
         if(
 
