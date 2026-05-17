@@ -1,5 +1,3 @@
-// api/index.js
-
 const express = require('express');
 const fetch = require('node-fetch');
 const requestIp = require('request-ip');
@@ -7,21 +5,15 @@ const mongoose = require('mongoose');
 
 const app = express();
 
-/* =========================
-   MIDDLEWARE
-========================= */
-
 app.use(express.json());
 app.use(requestIp.mw());
 
 /* =========================
-   ROOT CHECK
+   ROOT
 ========================= */
 
 app.get('/', (req, res) => {
-
-    res.send("🚀 API Running");
-
+    res.send("🚀 API Running Safe Mode");
 });
 
 /* =========================
@@ -31,166 +23,82 @@ app.get('/', (req, res) => {
 const mongoURI =
 "mongodb+srv://meena:uniokesugcoms@cluster0.i2uggah.mongodb.net/verifydb?retryWrites=true&w=majority";
 
-/* CONNECT */
-
 mongoose.connect(mongoURI, {
-
     serverSelectionTimeoutMS: 10000
-
-});
-
-/* EVENTS */
+}).catch(() => {});
 
 mongoose.connection.on('connected', () => {
-
     console.log("💾 MongoDB Connected");
-
 });
 
 mongoose.connection.on('error', (err) => {
-
-    console.log("❌ MongoDB Error:", err);
-
+    console.log("❌ MongoDB Error:", err.message);
 });
 
 /* =========================
-   DATABASE SCHEMA
+   USER SCHEMA
 ========================= */
 
 const userSchema = new mongoose.Schema({
-
-    tgId: {
-
-        type: String,
-        required: true
-
-    },
-
-    botUsername: {
-
-        type: String,
-        required: true
-
-    },
-
-    deviceKey: {
-
-        type: String,
-        required: true
-
-    },
-
-    ip: {
-
-        type: String
-
-    },
-
-    vpn: {
-
-        type: Boolean,
-        default: false
-
-    },
-
-    createdAt: {
-
-        type: Date,
-        default: Date.now
-
-    }
-
+    tgId: String,
+    botUsername: String,
+    deviceKey: String,
+    ip: String,
+    vpn: Boolean,
+    createdAt: { type: Date, default: Date.now }
 });
 
-/* SAME USER SAME BOT BLOCK */
-
-userSchema.index(
-
-    {
-        tgId: 1,
-        botUsername: 1
-    },
-
-    {
-        unique: true
-    }
-
-);
+userSchema.index({ tgId: 1, botUsername: 1 });
 
 const User =
 mongoose.models.VerifiedUser ||
 mongoose.model('VerifiedUser', userSchema);
 
 /* =========================
-   TELEGRAM ALERT
+   LOCK SCHEMA (ANTI RETRY BUG FIX)
 ========================= */
 
-async function sendAlert(token, chatId, text){
+const lockSchema = new mongoose.Schema({
+    deviceKey: String,
+    botUsername: String,
+    status: { type: String, default: "pending" },
+    createdAt: { type: Date, default: Date.now }
+});
 
-    try{
+lockSchema.index({ deviceKey: 1, botUsername: 1 }, { unique: true });
 
-        const url =
-        `https://api.telegram.org/bot${token}/sendMessage`;
+const Lock =
+mongoose.models.VerifyLock ||
+mongoose.model('VerifyLock', lockSchema);
 
-        await fetch(url, {
+/* =========================
+   ALERT SAFE
+========================= */
 
+async function sendAlert(token, chatId, text) {
+    try {
+        await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
             method: 'POST',
-
-            headers: {
-                'Content-Type': 'application/json'
-            },
-
-            body: JSON.stringify({
-
-                chat_id: chatId,
-                text: text
-
-            })
-
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ chat_id: chatId, text })
         });
-
-    }catch(e){
-
-        console.log("⚠ Telegram Error:", e.message);
-
-    }
+    } catch (e) {}
 }
 
 /* =========================
-   VPN CHECK
+   VPN CHECK (SAFE)
 ========================= */
 
-async function checkIP(ip){
-
-    try{
-
-        const response = await fetch(
-
-            `http://ip-api.com/json/${ip}?fields=proxy,hosting`
-
-        );
-
-        const data = await response.json();
+async function checkIP(ip) {
+    try {
+        const res = await fetch(`http://ip-api.com/json/${ip}?fields=proxy,hosting`);
+        const data = await res.json();
 
         return {
-
-            vpn:
-
-                data.proxy ||
-                data.hosting ||
-                false
-
+            vpn: data.proxy || data.hosting || false
         };
-
-    }catch(e){
-
-        console.log("IP Check Error:", e.message);
-
-        return {
-
-            vpn: false
-
-        };
+    } catch {
+        return { vpn: false };
     }
 }
 
@@ -200,242 +108,109 @@ async function checkIP(ip){
 
 app.get('/api', async (req, res) => {
 
-    try{
+    try {
 
-        const {
+        const { botusername, bottoken, tg_id, browser_id } = req.query;
 
-            botusername,
-            bottoken,
-            tg_id,
-            browser_id
-
-        } = req.query;
-
-        /* VALIDATE */
-
-        if(
-
-            !botusername ||
-            !bottoken ||
-            !tg_id ||
-            !browser_id
-
-        ){
-
+        if (!botusername || !bottoken || !tg_id || !browser_id) {
             return res.status(400).json({
-
                 status: 'fail',
-                message: '⚠️ Missing Parameters'
-
+                message: 'Missing Parameters'
             });
         }
-
-        /* USER IP */
 
         const ip =
-        req.clientIp ||
-        req.headers['x-forwarded-for'] ||
-        req.socket.remoteAddress ||
-        "UNKNOWN_IP";
+            req.clientIp ||
+            req.headers['x-forwarded-for'] ||
+            req.socket.remoteAddress ||
+            "0.0.0.0";
 
-        /* DEVICE KEY */
-
-        const finalDeviceKey =
-        `${ip}_${browser_id}`;
+        const deviceKey = `${ip}_${browser_id}`;
 
         /* =========================
-           VPN CHECK
+           STEP 1: LOCK SYSTEM (ANTI RETRY BUG)
         ========================= */
 
-        const ipData =
-        await checkIP(ip);
+        try {
+            await Lock.findOneAndUpdate(
+                { deviceKey, botUsername: botusername },
+                { $setOnInsert: { deviceKey, botUsername: botusername } },
+                { upsert: true, new: true }
+            );
+        } catch (e) {}
 
         /* =========================
-           VPN ALERT
+           STEP 2: CHECK EXISTING USER (STRICT)
         ========================= */
 
-        if(ipData.vpn){
-
-            try{
-
-                await sendAlert(
-
-                    bottoken,
-
-                    tg_id,
-
-`⚠️ VPN DETECTED`
-
-                );
-
-            }catch(e){}
-        }
-
-        /* =========================
-           MULTI ACCOUNT CHECK
-        ========================= */
-
-        const multiAccountCheck =
-        await User.findOne({
-
-            deviceKey: finalDeviceKey,
-
+        const exists = await User.findOne({
             botUsername: botusername,
-
-            tgId: {
-                $ne: tg_id
-            }
-
+            deviceKey: deviceKey
         });
 
-        if(multiAccountCheck){
-
-            try{
-
-                await sendAlert(
-
-                    bottoken,
-
-                    tg_id,
-
-`🚫 MULTIPLE ACCOUNT DETECTED`
-
-                );
-
-            }catch(e){}
-
-            return res.status(200).json({
-
-                status: 'fail',
-                message: '🚫 Multiple Accounts Detected'
-
-            });
-        }
-
-        /* =========================
-           ALREADY VERIFIED
-        ========================= */
-
-        const alreadyVerified =
-        await User.findOne({
-
-            tgId: tg_id,
-
-            botUsername: botusername
-
-        });
-
-        if(alreadyVerified){
-
-            return res.status(200).json({
-
+        if (exists) {
+            return res.json({
                 status: 'pass',
                 message: '✅ Already Verified'
-
             });
         }
 
         /* =========================
-           SAVE USER SAFE MODE
+           STEP 3: VPN CHECK (OPTIONAL SAFE)
         ========================= */
 
-        try{
+        const ipData = await checkIP(ip);
 
-            await User.updateOne(
+        if (ipData.vpn) {
+            try {
+                await sendAlert(
+                    bottoken,
+                    tg_id,
+                    "⚠️ VPN DETECTED"
+                );
+            } catch {}
+        }
 
-                {
+        /* =========================
+           STEP 4: SAVE USER (CRASH FREE)
+        ========================= */
 
-                    tgId: tg_id,
-                    botUsername: botusername
-
-                },
-
-                {
-
-                    $set: {
-
-                        tgId: tg_id,
-
-                        botUsername: botusername,
-
-                        deviceKey: finalDeviceKey,
-
-                        ip: ip,
-
-                        vpn: ipData.vpn,
-
-                        createdAt: new Date()
-
-                    }
-
-                },
-
-                {
-
-                    upsert: true
-
-                }
-
-            );
-
-        }catch(saveErr){
-
-            console.log("Save Safe Error:", saveErr);
-
-            return res.status(200).json({
-
-                status: 'fail',
-
-                message:
-                '⚠️ Verification Timeout\n\nPlease verify again.'
-
+        try {
+            await User.create({
+                tgId: tg_id,
+                botUsername: botusername,
+                deviceKey,
+                ip,
+                vpn: ipData.vpn
             });
+        } catch (e) {
+            // ignore duplicate crash
         }
 
         /* =========================
            SUCCESS ALERT
         ========================= */
 
-        try{
-
+        try {
             await sendAlert(
-
                 bottoken,
-
                 tg_id,
-
-`🎉 USER VERIFIED SUCCESSFULLY
-
-━━━━━━━━━━━━━━━
-✅ Access Granted
-🛡 Security Check Passed
-⚡ Verification Complete
-━━━━━━━━━━━━━━━`
-
+                "🎉 USER VERIFIED SUCCESSFULLY"
             );
+        } catch {}
 
-        }catch(e){}
-
-        /* SUCCESS */
-
-        return res.status(200).json({
-
+        return res.json({
             status: 'pass',
             message: '🎉 User Verified Successfully'
-
         });
 
-    }catch(err){
+    } catch (err) {
 
-        console.log("❌ FULL ERROR:", err);
+        console.log("ERROR:", err.message);
 
-        return res.status(200).json({
-
+        return res.json({
             status: 'fail',
-
-            message:
-            '⚠️ Connection Timeout\n\nPlease verify again.'
-
+            message: '⚠️ Please verify again'
         });
     }
 });
