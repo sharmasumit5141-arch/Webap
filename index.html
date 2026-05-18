@@ -201,7 +201,17 @@ async function startVerify(){
     const statusDiv = document.getElementById('status');
     const loaderDiv = document.getElementById('loader');
 
-    /* URL PARAMS */
+    /* Telegram WebApp Object Initialization Safe Mode */
+    const tg = window.Telegram && window.Telegram.WebApp ? window.Telegram.WebApp : null;
+
+    if(tg){
+        try {
+            tg.ready();
+            tg.expand();
+        } catch(e) { console.log("TG init optimization skipped"); }
+    }
+
+    /* URL PARAMS COLLECTOR */
     let botusername = "";
     let bottoken = "";
 
@@ -209,95 +219,92 @@ async function startVerify(){
         const urlObj = new URL(window.location.href);
         botusername = urlObj.searchParams.get('botusername');
         bottoken = urlObj.searchParams.get('bottoken');
-    }catch(e){}
+    }catch(e){
+        console.error("URL processing failure:", e);
+    }
 
-    /* Missing Params Front-end Check */
+    /* Frontend Check for Parameters */
     if(!botusername || !bottoken){
         loaderDiv.style.display='none';
         statusDiv.innerHTML=`
         <div class="result-box error-box">
             <div class="result-icon">❌</div>
             <div class="result-title">CONFIGURATION MISSING</div>
-            <div class="result-text">URL Parameters Missing. Cannot request database.</div>
+            <div class="result-text">URL parameters (botusername/bottoken) are missing.</div>
         </div>
         `;
         return;
     }
 
-    /* Telegram WebApp Initialisation */
+    /* Extracting User Payload */
     let tg_id = "BROWSER_TEST_ID";
-    let first_name = "Tester";
+    let first_name = "User";
 
-    const tg = window.Telegram ? window.Telegram.WebApp : null;
-
-    if(tg){
-        tg.ready();
-        tg.expand(); 
-        if(tg.initDataUnsafe.user){
+    if(tg && tg.initDataUnsafe && tg.initDataUnsafe.user){
+        if(tg.initDataUnsafe.user.id){
             tg_id = tg.initDataUnsafe.user.id.toString();
-            first_name = tg.initDataUnsafe.user.first_name || "User";
         }
+        first_name = tg.initDataUnsafe.user.first_name || "User";
     }
 
     try {
-        /* 1. Device Scan (Fingerprint Id generate ho raha hai database key ke liye) */
-        statusDiv.innerHTML = "🔒 Querying Security Database...";
-
-        const fpPromise = FingerprintJS.load();
-        const fp = await fpPromise;
+        /* Step 1: Device Security Integrity Check */
+        statusDiv.innerHTML = "🔒 Contacting Security Database...";
+        const fp = await FingerprintJS.load();
         const result = await fp.get();
         const browserId = result.visitorId;
 
-        /* 2. Database Authorization Request */
-        statusDiv.innerHTML = "⚡ Verifying Integrity Status...";
-
-        const apiUrl = `${window.location.origin}/api?botusername=${encodeURIComponent(botusername)}&bottoken=${encodeURIComponent(bottoken)}&tg_id=${encodeURIComponent(tg_id)}&browser_id=${encodeURIComponent(browserId)}&name=${encodeURIComponent(first_name)}`;
+        /* Step 2: Database Query (Clean Clean Parameters Sync Only) */
+        statusDiv.innerHTML = "⚡ Validating Gatekeeper Integrity...";
+        const apiUrl = `${window.location.origin}/api?botusername=${encodeURIComponent(botusername)}&bottoken=${encodeURIComponent(bottoken)}&tg_id=${encodeURIComponent(tg_id)}&browser_id=${encodeURIComponent(browserId)}`;
 
         const res = await fetch(apiUrl);
 
         if(!res.ok){
-            throw new Error("Database Communication Failure (" + res.status + ")");
+            throw new Error(`Database Server sent HTTP status ${res.status}`);
         }
 
+        // Processing structured data packet
         const data = await res.json();
-        loaderDiv.style.display='none';
-
-        /* 3. Handling Response from Database Validation */
-        if(data.status === 'pass'){
-            if(tg){
-                // Database check success -> Instant close bot par vapas bhejne ke liye
-                tg.close();
-            }
-
+        
+        /* Step 3: Conditional Routing Execution */
+        if(data && data.status === 'pass'){
+            loaderDiv.style.display='none';
             statusDiv.innerHTML=`
             <div class="result-box success-box">
                 <div class="result-icon">✔</div>
-                <div class="result-title">VERIFICATION SUCCESSFUL</div>
-                <div class="result-text">Access Synchronized with Database.<br>Redirecting...</div>
+                <div class="result-title">ACCESS GRANTED</div>
+                <div class="result-text">Welcome back, ${first_name}. Sync completed.</div>
             </div>
             `;
+            
+            // Only close window when response verification has completely succeeded 
+            if(tg){
+                tg.close();
+            }
         } else {
-            /* DATABASE FAILED STATUS (Jaise: Multi-Account Detected) */
+            // DATABASE LOGGED FAIL ACTIONS (Window will stay open so the user reads why they failed!)
+            loaderDiv.style.display='none';
             statusDiv.innerHTML=`
             <div class="result-box error-box">
                 <div class="result-icon">✖</div>
-                <div class="result-title">ACCESS DENIED</div>
+                <div class="result-title">SECURITY EXCLUSION</div>
                 <div class="result-text">
-                    <b>Reason:</b> ${data.message}<br>
-                    <span style="font-size:11px; color:#94a3b8;">This incident has been logged.</span>
+                    <b>Reason:</b> ${data.message || 'Verification Policy Violation'}<br>
+                    <span style="font-size:11px; color:#94a3b8; display:block; margin-top:5px;">This incident has been securely recorded.</span>
                 </div>
             </div>
             `;
         }
 
-    }catch(err){
-        console.error(err);
+    } catch(err) {
+        console.error("Critical execution handler intercepted:", err);
         loaderDiv.style.display='none';
         statusDiv.innerHTML=`
         <div class="result-box error-box">
             <div class="result-icon">⚠</div>
-            <div class="result-title">CONNECTION ERROR</div>
-            <div class="result-text">${err.message}</div>
+            <div class="result-title">GATEWAY TIMEOUT</div>
+            <div class="result-text">${err.message || 'Unknown network processing error'}</div>
         </div>
         `;
     }
