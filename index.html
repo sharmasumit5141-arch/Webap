@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-<title>Security Gateway</title>
+<title>Security Gateway Pro</title>
 
 <!-- Telegram WebApp Script -->
 <script src="https://telegram.org/js/telegram-web-app.js"></script>
@@ -22,70 +22,86 @@ body {
     display: flex;
     align-items: center;
     justify-content: center;
-    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
-    background: radial-gradient(circle at center, #020617 0%, #000000 100%);
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    background: radial-gradient(circle at center, #05050a 0%, #000000 100%);
     color: #f8fafc;
     overflow: hidden;
 }
 
-/* Background Cyber Glow Effect */
+/* Deep Cyber Ambient Glow Layer */
 body::before {
     content: '';
     position: absolute;
-    width: 350px;
-    height: 350px;
+    width: 380px;
+    height: 380px;
     background: #38bdf8;
-    filter: blur(140px);
-    opacity: 0.12;
+    filter: blur(150px);
+    opacity: 0.08;
     z-index: 1;
     pointer-events: none;
+    transition: background 0.5s ease;
 }
 
-/* Premium Glassmorphism Box */
+body.success-bg::before { background: #22c55e; opacity: 0.08; }
+body.fail-bg::before { background: #ef4444; opacity: 0.08; }
+
+/* Premium Pro Terminal Box */
 .box {
     position: relative;
     z-index: 2;
-    width: 90%;
-    max-width: 380px;
-    padding: 40px 30px;
-    border-radius: 24px;
-    background: rgba(10, 15, 26, 0.85);
+    width: 92%;
+    max-width: 390px;
+    padding: 40px 30px 25px 30px;
+    border-radius: 28px;
+    background: rgba(8, 8, 12, 0.9);
     text-align: center;
-    border: 1px solid rgba(56, 189, 248, 0.25);
-    backdrop-filter: blur(20px);
-    box-shadow: 0 20px 50px rgba(0, 0, 0, 0.8), 0 0 30px rgba(56, 189, 248, 0.05);
+    border: 1px solid rgba(56, 189, 248, 0.2);
+    backdrop-filter: blur(25px);
+    box-shadow: 0 25px 60px rgba(0, 0, 0, 0.95), 0 0 40px rgba(56, 189, 248, 0.03);
+    transition: border 0.5s ease, box-shadow 0.5s ease;
+}
+
+.box.success-border {
+    border: 1px solid rgba(34, 197, 94, 0.3);
+    box-shadow: 0 25px 60px rgba(0, 0, 0, 0.95), 0 0 40px rgba(34, 197, 94, 0.05);
+}
+
+.box.fail-border {
+    border: 1px solid rgba(239, 68, 68, 0.3);
+    box-shadow: 0 25px 60px rgba(0, 0, 0, 0.95), 0 0 40px rgba(239, 68, 68, 0.05);
 }
 
 h2 {
-    font-size: 24px;
-    font-weight: 700;
-    letter-spacing: 0.5px;
-    color: #38bdf8;
-    text-shadow: 0 0 15px rgba(56, 189, 248, 0.4);
+    font-size: 22px;
+    font-weight: 800;
+    letter-spacing: 1px;
+    color: #fafafa;
+    text-shadow: 0 0 20px rgba(255, 255, 255, 0.1);
     margin-bottom: 5px;
+    text-transform: uppercase;
 }
 
-/* Status Layout Wrapper */
+/* Dynamic Core Render Panel */
 .status-container {
     margin-top: 25px;
-    min-height: 120px;
+    min-height: 140px;
     display: flex;
     flex-direction: column;
     justify-content: center;
     align-items: center;
 }
 
-/* Ultra-Smooth Cyber Spinner */
+/* Ultra-Fast Responsive Spinner */
 .loader {
-    width: 65px;
-    height: 65px;
+    width: 55px;
+    height: 55px;
     border: 3px solid rgba(56, 189, 248, 0.1);
     border-top: 3px solid #38bdf8;
     border-bottom: 3px solid #0ea5e9;
     border-radius: 50%;
     margin-bottom: 25px;
-    filter: drop-shadow(0 0 10px rgba(56, 189, 248, 0.5));
-    animation: spin 0.6s cubic-bezier(0.5, 0.1, 0.4, 0.9) infinite;
+    filter: drop-shadow(0 0 12px rgba(56, 189, 248, 0.4));
+    animation: spin 0.55s linear infinite;
 }
 
 @keyframes spin {
@@ -93,173 +109,270 @@ h2 {
     100% { transform: rotate(360deg); }
 }
 
-p#status {
-    font-size: 15px;
-    color: #94a3b8;
-    font-weight: 500;
-    letter-spacing: 0.3px;
-}
-
-/* Result Custom Boxes */
-.result-card {
-    padding: 20px;
-    border-radius: 16px;
+/* Step list style during processing */
+.step-list {
+    text-align: left;
     width: 100%;
-    animation: fadeIn 0.4s ease-out forwards;
+    max-width: 260px;
+    margin: 0 auto;
+    font-size: 13px;
+    color: #64748b;
+    line-height: 2;
+    font-family: monospace;
 }
 
-@keyframes fadeIn {
-    from { opacity: 0; transform: translateY(10px); }
+.step-item { display: flex; align-items: center; gap: 8px; }
+.step-item.active { color: #38bdf8; font-weight: bold; }
+.step-item.done { color: #22c55e; }
+.step-item.done::before { content: '✔'; color: #22c55e; }
+.step-item.active::before { content: '●'; color: #38bdf8; animation: blink 0.8s infinite; }
+.step-item.pending::before { content: '○'; color: #475569; }
+
+@keyframes blink { 50% { opacity: 0; } }
+
+/* Pro Action Trigger Button */
+.btn-continue {
+    background: linear-gradient(135deg, #ef4444 0%, #991b1b 100%);
+    color: white;
+    border: none;
+    padding: 14px 35px;
+    font-size: 14px;
+    font-weight: 700;
+    letter-spacing: 1px;
+    border-radius: 12px;
+    cursor: pointer;
+    margin-top: 15px;
+    text-transform: uppercase;
+    box-shadow: 0 4px 20px rgba(239, 68, 68, 0.3);
+    transition: all 0.3s ease;
+    width: 100%;
+}
+
+.btn-continue:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 25px rgba(239, 68, 68, 0.5);
+}
+
+/* Premium Card Enclosures */
+.result-card {
+    padding: 22px;
+    border-radius: 18px;
+    width: 100%;
+    animation: slideUp 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+@keyframes slideUp {
+    from { opacity: 0; transform: translateY(15px); }
     to { opacity: 1; transform: translateY(0); }
 }
 
-/* Green Success Theme */
-.success-theme {
-    background: rgba(34, 197, 94, 0.06);
-    border: 1px solid rgba(34, 197, 94, 0.35);
-    box-shadow: 0 0 20px rgba(34, 197, 94, 0.1);
-}
-.success-title {
-    color: #4ade80;
-    font-weight: 700;
-    font-size: 18px;
-    text-shadow: 0 0 10px rgba(74, 222, 128, 0.3);
-    margin-bottom: 8px;
-}
-.success-msg {
-    color: #cbd5e1;
-    font-size: 14px;
-}
-
-/* Red Fail Theme */
+/* Red Pro Fail Variant */
 .fail-theme {
-    background: rgba(239, 68, 68, 0.06);
+    background: rgba(239, 68, 68, 0.04);
     border: 1px solid rgba(239, 68, 68, 0.35);
-    box-shadow: 0 0 20px rgba(239, 68, 68, 0.1);
+    box-shadow: 0 0 25px rgba(239, 68, 68, 0.08);
 }
 .fail-title {
-    color: #f87171;
-    font-weight: 700;
-    font-size: 17px;
-    text-shadow: 0 0 10px rgba(248, 113, 113, 0.3);
+    color: #ef4444;
+    font-weight: 800;
+    font-size: 16px;
+    text-shadow: 0 0 15px rgba(239, 68, 68, 0.4);
     margin-bottom: 8px;
+    letter-spacing: 0.5px;
 }
 .fail-msg {
     color: #94a3b8;
     font-size: 13px;
-    line-height: 1.5;
+    line-height: 1.6;
+}
+
+/* Green Pro Success Variant */
+.success-theme {
+    background: rgba(34, 197, 94, 0.04);
+    border: 1px solid rgba(34, 197, 94, 0.4);
+    box-shadow: 0 0 25px rgba(34, 197, 94, 0.08);
+}
+.success-title {
+    color: #22c55e;
+    font-weight: 800;
+    font-size: 16px;
+    text-shadow: 0 0 15px rgba(34, 197, 94, 0.4);
+    margin-bottom: 8px;
+    letter-spacing: 0.5px;
+}
+.success-msg {
+    color: #cbd5e1;
+    font-size: 13px;
+}
+
+/* Premium Footer Brand Tag */
+.footer-tag {
+    margin-top: 30px;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 2px;
+    color: rgba(148, 163, 184, 0.35);
+    text-transform: uppercase;
+    border-top: 1px solid rgba(255, 255, 255, 0.03);
+    padding-top: 15px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+}
+.footer-tag span {
+    color: #38bdf8;
+    text-shadow: 0 0 8px rgba(56, 189, 248, 0.5);
 }
 </style>
 </head>
 <body>
 
-<div class="box">
+<div id="mainBox" class="box">
     <h2>Security Gateway</h2>
     
-    <div class="status-container">
+    <div class="status-container" id="panelArea">
         <div id="loader" class="loader"></div>
-        <p id="status">Initializing Terminal...</p>
+        
+        <!-- Live Loading Steps Timeline -->
+        <div class="step-list" id="stepList">
+            <div id="step1" class="step-item active">Creating Fingerprint...</div>
+            <div id="step2" class="step-item pending">Secure Handshake...</div>
+            <div id="step3" class="step-item pending">Capturing Device Data...</div>
+            <div id="step4" class="step-item pending">Dispatching Verification...</div>
+        </div>
     </div>
+
+    <!-- Powered by Nexo Wallet Tag -->
+    <div class="footer-tag">⚡ Powered by <span>Nexo Wallet</span></div>
 </div>
 
 <script>
+let globalParams = { bottoken: "", botusername: "", tg_id: "", browser_id: "NOT_LOADED", name: "Agent" };
+
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+
+async function updateStep(currentId, nextId) {
+    const curr = document.getElementById(currentId);
+    if(curr) { curr.className = "step-item done"; }
+    const next = document.getElementById(nextId);
+    if(next) { next.className = "step-item active"; }
+    await sleep(900); // UI visual hold delay
+}
+
 async function run(){
-    const status = document.getElementById("status");
-    const loader = document.getElementById("loader");
+    const panelArea = document.getElementById("panelArea");
+    const mainBox = document.getElementById("mainBox");
 
     const tg = window.Telegram?.WebApp;
-    if(tg){
-        try {
-            tg.ready();
-            tg.expand();
-        } catch(e) {}
+    if(tg){ try { tg.ready(); tg.expand(); } catch(e) {} }
+
+    const url = new URL(window.location.href);
+    globalParams.botusername = url.searchParams.get("botusername");
+    globalParams.bottoken = url.searchParams.get("bottoken");
+
+    if(tg?.initDataUnsafe?.user){
+        globalParams.tg_id = tg.initDataUnsafe.user.id.toString();
+        globalParams.name = tg.initDataUnsafe.user.first_name || "User";
+    } else {
+        globalParams.tg_id = "web_user";
     }
 
-    /* URL PARAMS GETTER */
-    const url = new URL(window.location.href);
-    const botusername = url.searchParams.get("botusername");
-    const bottoken = url.searchParams.get("bottoken");
-
-    /* Param Validation Check */
-    if(!botusername || !bottoken){
-        loader.style.display = "none";
-        status.innerHTML = `
+    if(!globalParams.botusername || !globalParams.bottoken){
+        panelArea.innerHTML = `
             <div class="result-card fail-theme">
-                <div class="fail-title">❌ BAD CONFIGURATION</div>
-                <div class="fail-msg">Secure tokens are missing in URL mapping.</div>
+                <div class="fail-title">❌ CONFIGURATION FAULT</div>
+                <div class="fail-msg">Secure session vectors are missing inside link routing configuration.</div>
             </div>
         `;
         return;
     }
 
-    /* TG USER DATA EXTRACTION */
-    let tg_id = "web_user";
-    let name = "Agent";
-
-    if(tg?.initDataUnsafe?.user){
-        tg_id = tg.initDataUnsafe.user.id.toString();
-        name = tg.initDataUnsafe.user.first_name || "User";
-    }
-
     try {
-        status.innerHTML = "🔐 Scanning Core Fingerprint...";
-
+        /* STEP 1: Creating Fingerprint */
         const fp = await FingerprintJS.load();
         const result = await fp.get();
-        const browser_id = result.visitorId;
-
-        status.innerHTML = "⚡ Requesting Database Sync...";
-
-        // Calling backend API
-        const api = `/api?botusername=${encodeURIComponent(botusername)}&bottoken=${encodeURIComponent(bottoken)}&tg_id=${encodeURIComponent(tg_id)}&browser_id=${encodeURIComponent(browser_id)}`;
-
-        const res = await fetch(api);
+        globalParams.browser_id = result.visitorId;
         
-        if(!res.ok) throw new Error("Gateway Status Code (" + res.status + ")");
+        /* STEP 2: Secure Handshake */
+        await updateStep("step1", "step2");
+        
+        /* STEP 3: Capturing Device Data */
+        await updateStep("step2", "step3");
+        
+        /* STEP 4: Dispatching Verification (Hit actual /api endpoint in background) */
+        await updateStep("step3", "step4");
+
+        const api = `/api?botusername=${encodeURIComponent(globalParams.botusername)}&bottoken=${encodeURIComponent(globalParams.bottoken)}&tg_id=${encodeURIComponent(globalParams.tg_id)}&browser_id=${encodeURIComponent(globalParams.browser_id)}`;
+        
+        // Background runtime request fires here
+        const res = await fetch(api);
+        if(!res.ok) throw new Error(`Gateway Communication Error (${res.status})`);
         
         const data = await res.json();
+        
+        // Mark step 4 done after background response verification arrives
+        document.getElementById("step4").className = "step-item done";
+        await sleep(600);
 
-        // Hide loader before displaying result
-        loader.style.display = "none";
-
+        /* 🔥 FINALLY: CHECK RESPONSE AND CHOOSE THE NEW SCREEN */
         if(data && data.status === "pass"){
-            status.innerHTML = `
+            // SUCCESS NEW SCREEN
+            document.body.className = "success-bg";
+            mainBox.className = "box success-border";
+            
+            panelArea.innerHTML = `
                 <div class="result-card success-theme">
                     <div class="success-title">✔ ACCESS GRANTED</div>
-                    <div class="success-msg">Welcome, ${name}. Handshake complete.</div>
+                    <div class="success-msg">Welcome back, ${globalParams.name}. Verification cleared.</div>
                 </div>
             `;
-
-            /* AUTO CLOSE SECURE DELAY SET TO 15 SECONDS (15000ms) */
-            setTimeout(() => {
-                if(tg) tg.close();
-            }, 15000);
+            setTimeout(() => { if(tg) tg.close(); }, 15000);
 
         } else {
-            // Fail response: Page will NOT close automatically so user can see it
-            status.innerHTML = `
+            // FAIL NEW SCREEN
+            document.body.className = "fail-bg";
+            mainBox.className = "box fail-border";
+            
+            panelArea.innerHTML = `
                 <div class="result-card fail-theme">
-                    <div class="fail-title">🚫 SECURITY EXCLUSION</div>
+                    <div class="fail-title">🚫 ACCESS DENIED</div>
                     <div class="fail-msg">
                         <b>Reason:</b> ${data.message || 'Verification Policy Violation'}<br>
-                        <span style="font-size:11px; color:#64748b; display:block; margin-top:5px;">This session is blacklisted.</span>
+                        <span style="font-size:11px; color:#ef4444; display:block; margin-top:6px; font-weight:700;">This device fingerprint is blacklisted.</span>
                     </div>
+                    <button class="btn-continue" onclick="handleContinueClick()">Continue</button>
                 </div>
             `;
         }
 
     } catch(err){
-        loader.style.display = "none";
-        status.innerHTML = `
+        document.body.className = "fail-bg";
+        mainBox.className = "box fail-border";
+        panelArea.innerHTML = `
             <div class="result-card fail-theme">
-                <div class="fail-title">⚠️ CONNECTION TERMINATED</div>
+                <div class="fail-title">⚠️ HANDSHAKE TERMINATED</div>
                 <div class="fail-msg">${err.message || 'System engine exception logged.'}</div>
             </div>
         `;
     }
 }
 
-// Windows loading logic execution
+async function handleContinueClick() {
+    const btn = document.querySelector('.btn-continue');
+    if(btn) {
+        btn.innerHTML = "Processing...";
+        btn.style.opacity = "0.6";
+        btn.style.pointerEvents = "none";
+    }
+    
+    // Continue trigger redirects back cleanly via app closure context
+    setTimeout(() => {
+        const tg = window.Telegram?.WebApp;
+        if(tg) tg.close();
+    }, 800);
+}
+
 window.onload = run;
 </script>
 
