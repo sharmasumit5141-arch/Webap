@@ -22,7 +22,8 @@ const mongoURI =
 "mongodb+srv://meena:uniokesugcoms@cluster0.i2uggah.mongodb.net/verifydb?retryWrites=true&w=majority";
 
 mongoose.connect(mongoURI, {
-    serverSelectionTimeoutMS: 8000
+    serverSelectionTimeoutMS: 8000,
+    maxPoolSize: 10
 }).catch(() => {});
 
 mongoose.connection.on('connected', () => {
@@ -30,14 +31,13 @@ mongoose.connection.on('connected', () => {
 });
 
 /* =========================
-   SCHEMA
+   SCHEMA (FAIL LOCK ENABLED)
 ========================= */
 const userSchema = new mongoose.Schema({
-    tgId: String,
-    botUsername: String,
-    deviceKey: String,
+    tgId: { type: String, required: true },
+    botUsername: { type: String, required: true },
+    deviceKey: { type: String, required: true },
     ip: String,
-    vpn: Boolean,
 
     status: {
         type: String,
@@ -45,8 +45,15 @@ const userSchema = new mongoose.Schema({
         default: "pass"
     },
 
-    reason: String,
-    createdAt: { type: Date, default: Date.now }
+    reason: {
+        type: String,
+        default: ""
+    },
+
+    createdAt: {
+        type: Date,
+        default: Date.now
+    }
 });
 
 userSchema.index({ tgId: 1, botUsername: 1 }, { unique: true });
@@ -56,30 +63,27 @@ mongoose.models.VerifiedUser ||
 mongoose.model('VerifiedUser', userSchema);
 
 /* =========================
-   SAFE TELEGRAM ALERT (NO CRASH)
+   TELEGRAM ALERT (NON BLOCK)
 ========================= */
-async function sendAlert(token, chatId, text) {
-    try {
-        await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                chat_id: chatId,
-                text
-            })
-        });
-    } catch (e) {
-        // NEVER break API
-        console.log("Telegram error ignored");
-    }
+function sendAlert(token, chatId, text) {
+    fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+            chat_id: chatId,
+            text
+        })
+    }).catch(() => {});
 }
 
 /* =========================
-   VPN CHECK
+   VPN CHECK (SAFE)
 ========================= */
 async function checkVPN(ip) {
     try {
-        const res = await fetch(`http://ip-api.com/json/${ip}?fields=proxy,hosting`);
+        const res = await fetch(
+            `http://ip-api.com/json/${ip}?fields=proxy,hosting`
+        );
         const data = await res.json();
         return Boolean(data.proxy || data.hosting);
     } catch {
@@ -96,15 +100,13 @@ app.get('/api', async (req, res) => {
 
         const { botusername, bottoken, tg_id, browser_id } = req.query;
 
-        /* VALIDATION */
-        if (!botusername || !bottoken || !tg_id || !browser_id) {
+        if (!botusername || !tg_id || !browser_id) {
             return res.json({
                 status: "fail",
                 message: "Missing Parameters"
             });
         }
 
-        /* IP + DEVICE */
         const ip =
             req.clientIp ||
             req.headers['x-forwarded-for'] ||
@@ -114,39 +116,60 @@ app.get('/api', async (req, res) => {
         const deviceKey = `${ip}_${browser_id}`;
 
         /* =========================
+           FIND USER
+        ========================= */
+        const user = await User.findOne({
+            tgId: tg_id,
+            botUsername: botusername
+        });
+
+        /* =========================
+           ❌ PERMANENT FAIL BLOCK
+        ========================= */
+        if (user && user.status === "fail") {
+            return res.json({
+                status: "fail",
+                message: "❌ Access Denied (Permanent Fail)"
+            });
+        }
+
+        /* =========================
+           ✅ ALREADY PASSED
+        ========================= */
+        if (user && user.status === "pass") {
+            return res.json({
+                status: "pass",
+                message: "Already Verified"
+            });
+        }
+
+        /* =========================
            VPN CHECK
         ========================= */
         const vpn = await checkVPN(ip);
 
         if (vpn) {
-            sendAlert(
-                bottoken,
-                tg_id,
-                "⚠️ VPN / Proxy Detected"
+            await User.updateOne(
+                { tgId: tg_id, botUsername: botusername },
+                {
+                    $set: {
+                        tgId: tg_id,
+                        botUsername: botusername,
+                        deviceKey,
+                        ip,
+                        status: "fail",
+                        reason: "VPN Detected",
+                        createdAt: new Date()
+                    }
+                },
+                { upsert: true }
             );
-        }
 
-        /* =========================
-           FIND USER
-        ========================= */
-        const user = await User.findOne({
-            tgId: tg_id,
-            botUsername
-        });
+            sendAlert(bottoken, tg_id, "⚠️ VPN DETECTED");
 
-        /* ❌ FAILED USER BLOCK */
-        if (user && user.status === "fail") {
             return res.json({
                 status: "fail",
-                message: "❌ Access Denied (Previously Failed)"
-            });
-        }
-
-        /* ✅ ALREADY VERIFIED */
-        if (user && user.status === "pass") {
-            return res.json({
-                status: "pass",
-                message: "🎉 Already Verified"
+                message: "VPN / Proxy Not Allowed"
             });
         }
 
@@ -155,74 +178,70 @@ app.get('/api', async (req, res) => {
         ========================= */
         const multi = await User.findOne({
             deviceKey,
-            botUsername,
-            tgId: { $ne: tg_id }
+            botUsername: botusername,
+            tgId: { $ne: tg_id },
+            status: "pass"
         });
 
         if (multi) {
-
             await User.updateOne(
-                { tgId: tg_id, botUsername },
+                { tgId: tg_id, botUsername: botusername },
                 {
                     $set: {
                         tgId: tg_id,
-                        botUsername,
+                        botUsername: botusername,
                         deviceKey,
                         ip,
-                        vpn,
                         status: "fail",
-                        reason: "Multi Account"
+                        reason: "Multi Account Detected",
+                        createdAt: new Date()
                     }
                 },
                 { upsert: true }
             );
 
+            sendAlert(bottoken, tg_id, "🚫 MULTIPLE ACCOUNT DETECTED");
+
             return res.json({
                 status: "fail",
-                message: "🚫 Multiple Account Detected"
+                message: "Multiple Account Detected"
             });
         }
 
         /* =========================
-           VERIFY SUCCESS
+           SUCCESS SAVE
         ========================= */
         await User.updateOne(
-            { tgId: tg_id, botUsername },
+            { tgId: tg_id, botUsername: botusername },
             {
                 $set: {
                     tgId: tg_id,
-                    botUsername,
+                    botUsername: botusername,
                     deviceKey,
                     ip,
-                    vpn,
                     status: "pass",
+                    reason: "Success",
                     createdAt: new Date()
                 }
             },
             { upsert: true }
         );
 
-        /* =========================
-           SUCCESS ALERT
-        ========================= */
-        sendAlert(
-            bottoken,
-            tg_id,
-            "🎉 USER VERIFIED SUCCESSFULLY"
-        );
+        /* ALERT */
+        sendAlert(bottoken, tg_id, "🎉 VERIFIED SUCCESS");
 
         return res.json({
             status: "pass",
-            message: "🎉 User Verified Successfully"
+            message: "Verified Successfully"
         });
 
     } catch (err) {
 
-        console.log("ERROR:", err.message);
+        console.log("ERROR:", err);
 
         return res.json({
             status: "fail",
-            message: "Server Busy, Try Again"
+            message: "Server Error"
         });
     }
 });
