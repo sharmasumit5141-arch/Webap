@@ -4,46 +4,61 @@ const mongoose = require('mongoose');
 const app = express();
 app.use(express.json());
 
-const mongouri = "mongodb+srv://meena:uniokesugcoms@cluster0.i2uggah.mongodb.net/verifydb?retryWrites=true&w=majority";
+/* =========================
+DB CONNECT (Same as index.js)
+========================= */
+const mongoURI = "mongodb+srv://meena:uniokesugcoms@cluster0.i2uggah.mongodb.net/verifydb?retryWrites=true&w=majority";
 
+// Agar mongoose pehle se connected nahi hai toh hi connect karega
 if (mongoose.connection.readyState === 0) {
-    mongoose.connect(mongouri, { serverSelectionTimeoutMS: 5000 }).catch(err => {
-        console.log("db connection error:", err.message);
+    mongoose.connect(mongoURI, {
+        serverSelectionTimeoutMS: 8000
+    }).catch((err) => {
+        console.log("❌ DB Checker Connection Blocked:", err.message);
     });
 }
 
-// Yahan hum pehle se bani collection ka schema exact reference de rahe hain
+/* =========================
+SCHEMA & MODEL (Same as index.js)
+========================= */
 const userSchema = new mongoose.Schema({
-    tgId: String,
-    botUsername: String,
-    status: String
+    tgId: { type: String, required: true },
+    botUsername: { type: String, required: true },
+    deviceKey: { type: String, required: true },
+    ip: String,
+    status: { type: String, enum: ["pass", "fail"], default: "pass" },
+    reason: String,
+    createdAt: { type: Date, default: Date.now }
 });
 
-// Agar main file mein 'VerifiedUser' naam tha, toh yahan exact wahi point karna hoga
 const User = mongoose.models.VerifiedUser || mongoose.model('VerifiedUser', userSchema);
 
+/* =========================
+🤖 MAIN CHECK ROUTE
+========================= */
 app.get('/api/check', async (req, res) => {
     try {
-        // URL se dono parameters small letters mein nikalenge
-        const botusername = req.query.botusername;
-        const tg_id = req.query.tg_id;
+        // Query parameters ko nikalna (botusername aur tg_id small letters mein hi rahenge URL ke liye)
+        const { botusername, tg_id } = req.query;
 
         if (!botusername || !tg_id) {
-            return res.json({ status: "error", message: "missing botusername or tg_id" });
+            return res.json({ status: "fail", message: "Missing Parameters" });
         }
 
-        // Database ke andar jo fields hain (tgId, botUsername) unke hisab se search hoga
-        const userrecord = await User.findOne({ tgId: tg_id, botUsername: botusername });
+        // Database mein same fields (tgId, botUsername) par find chalana
+        const user = await User.findOne({ tgId: tg_id, botUsername: botusername });
 
-        if (!userrecord) {
+        // CASE 1: Agar user database mein nahi mila -> Matlab pending hai
+        if (!user) {
             return res.json({ status: "pending" });
         }
 
-        return res.json({ status: userrecord.status });
+        // CASE 2 & 3: Agar user mil gaya -> Jo bhi status hai ("pass" ya "fail") direct return karo
+        return res.json({ status: user.status });
 
     } catch (err) {
-        // Agar abhi bhi koi dikkat aati hai toh yeh exact error batayega na ki sirf database busy
-        return res.json({ status: "error", message: err.message });
+        console.log("CHECK_API_CRASH:", err.message);
+        return res.json({ status: "fail", message: "System busy. Try again." });
     }
 });
 
