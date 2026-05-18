@@ -38,7 +38,7 @@ SCHEMA (FAIL + PASS TRACK)
 const userSchema = new mongoose.Schema({
     tgId: { type: String, required: true },
     botUsername: { type: String, required: true },
-    deviceKey: { type: String, required: true }, // Fixed: Ab isme sirf unique browser fingerprint hoga
+    deviceKey: { type: String, required: true }, 
     ip: String,
     status: {
         type: String,
@@ -92,16 +92,21 @@ function saveUserLog(tgId, botUsername, deviceKey, ip, status, reason) {
 }
 
 /* =========================
-VPN CHECK SAFE (FAST)
+VPN CHECK & ALERT (⚡ FULLY ASYNC BACKGROUND WHIP)
 ========================= */
-async function checkVPN(ip) {
+async function triggerVpnScanAndAlert(ip, bottoken, tg_id) {
     try {
-        if (!ip || ip === "0.0.0.0" || ip === "UNKNOWN") return false;
+        if (!ip || ip === "0.0.0.0" || ip === "UNKNOWN") return;
+        
+        // Response dispatch hone ke baad hi ye fetch background me chalega
         const res = await fetch(`http://ip-api.com/json/${ip}?fields=proxy,hosting`);
         const data = await res.json();
-        return Boolean(data.proxy || data.hosting);
+        
+        if (data.proxy || data.hosting) {
+            sendAlert(bottoken, tg_id, "⚠️ <b>VPN DETECTED</b>\nRouting connection inside a proxy framework.");
+        }
     } catch {
-        return false;
+        // Silently consume errors to avoid server disruption
     }
 }
 
@@ -120,7 +125,7 @@ app.get('/api', async (req, res) => {
             });
         }
 
-        /* IP RESOLUTION (For Logging/VPN detection only) */
+        /* IP RESOLUTION */
         let ip = "0.0.0.0";
         try {
             ip = req.clientIp || req.headers['x-forwarded-for'] || req.socket.remoteAddress || "0.0.0.0";
@@ -129,11 +134,7 @@ app.get('/api', async (req, res) => {
             }
         } catch {}
 
-        // 🔥 FIXED FIX: DeviceKey is now strictly the browser_id fingerprint (Aeroplane proof)
         const deviceKey = `${browser_id}`;
-
-        /* 🔥 VPN SCAN STARTED IN PARALLEL BACKGROUND */
-        const vpnPromise = checkVPN(ip);
 
         /* =========================
         FIND USER SAFE
@@ -145,7 +146,7 @@ app.get('/api', async (req, res) => {
             console.log("DB lookup skipped:", dbErr.message);
         }
 
-        /* ❌ BLOCK FAILED USERS */
+        /* ❌ CASE 1: PERMANENTLY BLOCKED USERS */
         if (user && user.status === "fail") {
             return res.json({
                 status: "fail",
@@ -153,7 +154,7 @@ app.get('/api', async (req, res) => {
             });
         }
 
-        /* ✅ ALREADY VERIFIED */
+        /* ✅ CASE 2: ALREADY VERIFIED (Instant Restore) */
         if (user && user.status === "pass") {
             sendAlert(bottoken, tg_id, `🔄 <b>ALREADY VERIFIED</b>\n🟢 Session Restored Securely.`);
             return res.json({
@@ -171,14 +172,14 @@ app.get('/api', async (req, res) => {
                 deviceKey,
                 botUsername: botusername,
                 tgId: { $ne: tg_id },
-                status: "pass" // Match only valid accounts
+                status: "pass" 
             });
         } catch {}
 
+        /* ❌ CASE 3: MULTI-ACCOUNT FINGERPRINT DETECTED */
         if (conflict) {
-            // Hard block status log in database
+            // Background logs and alert
             saveUserLog(tg_id, botusername, deviceKey, ip, "fail", "Device already used");
-            
             sendAlert(bottoken, tg_id, "🚫 <b>ACCESS DENIED</b>\n❌ Multi-Account Device Key Matching.");
 
             return res.json({
@@ -188,25 +189,23 @@ app.get('/api', async (req, res) => {
         }
 
         /* =========================
-        EVALUATE PIPELINE RESULTS
+        🎉 CASE 4: SUCCESS PROCESSING & INSTANT DISPATCH
         ========================= */
-        const vpnDetected = await vpnPromise;
-        if (vpnDetected) {
-            sendAlert(bottoken, tg_id, "⚠️ <b>VPN DETECTED</b>\nRouting connection inside a proxy framework.");
-        }
-
-        /* =========================
-        SUCCESS PROCESSING & DISPATCH
-        ========================= */
+        
+        // 1. Database entry asynchronously save hogi background me
         saveUserLog(tg_id, botusername, deviceKey, ip, "pass", "");
 
-        /* INSTANT RESPONSE ALERT */
+        // 2. Telegram message fetch trigger direct push hoga (Non-blocking)
         sendAlert(
             bottoken, 
             tg_id, 
             `🎉 <b>VERIFIED SUCCESS</b>\n━━━━━━━━━━━━\n🟢 Access Synchronized Securely.\n📍 <b>IP:</b> ${ip}`
         );
 
+        // 3. 🔥 VPN function ko background threads me phek diya (AWAIT HATA DIYA)
+        triggerVpnScanAndAlert(ip, bottoken, tg_id);
+
+        // 4. Instant JSON Response back to Frontend (Zero Delay)
         return res.json({
             status: "pass",
             message: "Verified Successfully"
@@ -226,4 +225,4 @@ app.get('/api', async (req, res) => {
 EXPORT
 ========================= */
 module.exports = app;
-    
+               
