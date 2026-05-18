@@ -23,85 +23,84 @@ body {
     align-items: center;
     justify-content: center;
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-    background: radial-gradient(circle at center, #05050a 0%, #000000 100%);
+    background: radial-gradient(circle at center, #070814 0%, #020205 100%);
     color: #f8fafc;
     overflow: hidden;
 }
 
-/* Deep Cyber Ambient Glow Layer */
+/* Premium Dynamic Cyber Ambient Background Glow */
 body::before {
     content: '';
     position: absolute;
-    width: 380px;
-    height: 380px;
-    background: #38bdf8;
-    filter: blur(150px);
-    opacity: 0.08;
+    width: 400px;
+    height: 400px;
+    background: linear-gradient(135deg, #00f2fe 0%, #4facfe 100%);
+    filter: blur(140px);
+    opacity: 0.12;
     z-index: 1;
     pointer-events: none;
-    transition: background 0.5s ease;
+    transition: all 0.6s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
-body.success-bg::before { background: #22c55e; opacity: 0.08; }
-body.fail-bg::before { background: #ef4444; opacity: 0.08; }
+body.success-bg::before { background: linear-gradient(135deg, #00ff87 0%, #60efff 100%); opacity: 0.15; }
+body.fail-bg::before { background: linear-gradient(135deg, #ff0055 0%, #000000 100%); opacity: 0.15; }
 
-/* Premium Pro Terminal Box */
+/* Ultra-Premium Glassmorphism Terminal Box */
 .box {
     position: relative;
     z-index: 2;
     width: 92%;
     max-width: 390px;
-    padding: 40px 30px 25px 30px;
-    border-radius: 28px;
-    background: rgba(8, 8, 12, 0.9);
+    padding: 45px 30px 30px 30px;
+    border-radius: 32px;
+    background: rgba(10, 11, 22, 0.85);
     text-align: center;
-    border: 1px solid rgba(56, 189, 248, 0.2);
-    backdrop-filter: blur(25px);
-    box-shadow: 0 25px 60px rgba(0, 0, 0, 0.95), 0 0 40px rgba(56, 189, 248, 0.03);
-    transition: border 0.5s ease, box-shadow 0.5s ease;
+    border: 1px solid rgba(0, 242, 254, 0.25);
+    backdrop-filter: blur(30px);
+    box-shadow: 0 30px 70px rgba(0, 0, 0, 0.85), 0 0 50px rgba(0, 242, 254, 0.05);
+    transition: all 0.6s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .box.success-border {
-    border: 1px solid rgba(34, 197, 94, 0.3);
-    box-shadow: 0 25px 60px rgba(0, 0, 0, 0.95), 0 0 40px rgba(34, 197, 94, 0.05);
+    border: 1px solid rgba(0, 255, 135, 0.4);
+    box-shadow: 0 30px 70px rgba(0, 0, 0, 0.85), 0 0 50px rgba(0, 255, 135, 0.08);
 }
 
 .box.fail-border {
-    border: 1px solid rgba(239, 68, 68, 0.3);
-    box-shadow: 0 25px 60px rgba(0, 0, 0, 0.95), 0 0 40px rgba(239, 68, 68, 0.05);
+    border: 1px solid rgba(255, 0, 85, 0.35);
+    box-shadow: 0 30px 70px rgba(0, 0, 0, 0.85), 0 0 50px rgba(255, 0, 85, 0.08);
 }
 
 h2 {
-    font-size: 22px;
-    font-weight: 800;
-    letter-spacing: 1px;
-    color: #fafafa;
-    text-shadow: 0 0 20px rgba(255, 255, 255, 0.1);
+    font-size: 24px;
+    font-weight: 900;
+    letter-spacing: 1.5px;
+    color: #ffffff;
+    text-shadow: 0 0 25px rgba(255, 255, 255, 0.15);
     margin-bottom: 5px;
     text-transform: uppercase;
 }
 
-/* Dynamic Core Render Panel */
 .status-container {
-    margin-top: 25px;
-    min-height: 140px;
+    margin-top: 30px;
+    min-height: 150px;
     display: flex;
     flex-direction: column;
     justify-content: center;
     align-items: center;
 }
 
-/* Ultra-Fast Responsive Spinner */
+/* Hyper-Fluid Spinner */
 .loader {
-    width: 55px;
-    height: 55px;
-    border: 3px solid rgba(56, 189, 248, 0.1);
-    border-top: 3px solid #38bdf8;
-    border-bottom: 3px solid #0ea5e9;
+    width: 60px;
+    height: 60px;
+    border: 3px solid rgba(0, 242, 254, 0.08);
+    border-top: 3px solid #00f2fe;
+    border-bottom: 3px solid #4facfe;
     border-radius: 50%;
-    margin-bottom: 25px;
-    filter: drop-shadow(0 0 12px rgba(56, 189, 248, 0.4));
-    animation: spin 0.55s linear infinite;
+    margin-bottom: 30px;
+    filter: drop-shadow(0 0 15px rgba(0, 242, 254, 0.45));
+    animation: spin 0.5s linear infinite;
 }
 
 @keyframes spin {
@@ -109,120 +108,103 @@ h2 {
     100% { transform: rotate(360deg); }
 }
 
-/* Step list style during processing */
+/* Matrix Terminal Step List */
 .step-list {
     text-align: left;
     width: 100%;
     max-width: 260px;
     margin: 0 auto;
     font-size: 13px;
-    color: #64748b;
-    line-height: 2;
-    font-family: monospace;
+    color: #4b5563;
+    line-height: 2.2;
+    font-family: 'Courier New', Courier, monospace;
 }
 
-.step-item { display: flex; align-items: center; gap: 8px; }
-.step-item.active { color: #38bdf8; font-weight: bold; }
-.step-item.done { color: #22c55e; }
-.step-item.done::before { content: '✔'; color: #22c55e; }
-.step-item.active::before { content: '●'; color: #38bdf8; animation: blink 0.8s infinite; }
-.step-item.pending::before { content: '○'; color: #475569; }
+.step-item { display: flex; align-items: center; gap: 10px; transition: color 0.3s; }
+.step-item.active { color: #00f2fe; font-weight: bold; text-shadow: 0 0 10px rgba(0, 242, 254, 0.3); }
+.step-item.done { color: #00ff87; text-shadow: 0 0 10px rgba(0, 255, 135, 0.2); }
+.step-item.done::before { content: '✔'; color: #00ff87; font-weight: bold; }
+.step-item.active::before { content: '●'; color: #00f2fe; animation: pulse 0.8s infinite alternate; }
+.step-item.pending::before { content: '○'; color: #374151; }
 
-@keyframes blink { 50% { opacity: 0; } }
+@keyframes pulse { 0% { opacity: 0.3; } 100% { opacity: 1; filter: drop-shadow(0 0 5px #00f2fe); } }
 
-/* Pro Action Trigger Button */
+/* Cybernetic Neon Action Button */
 .btn-continue {
-    background: linear-gradient(135deg, #ef4444 0%, #991b1b 100%);
+    background: linear-gradient(135deg, #ff0055 0%, #92002d 100%);
     color: white;
     border: none;
-    padding: 14px 35px;
-    font-size: 14px;
-    font-weight: 700;
-    letter-spacing: 1px;
-    border-radius: 12px;
+    padding: 15px 35px;
+    font-size: 13px;
+    font-weight: 800;
+    letter-spacing: 1.5px;
+    border-radius: 14px;
     cursor: pointer;
-    margin-top: 15px;
+    margin-top: 20px;
     text-transform: uppercase;
-    box-shadow: 0 4px 20px rgba(239, 68, 68, 0.3);
-    transition: all 0.3s ease;
+    box-shadow: 0 5px 25px rgba(255, 0, 85, 0.35);
+    transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
     width: 100%;
 }
 
 .btn-continue:hover {
     transform: translateY(-2px);
-    box-shadow: 0 6px 25px rgba(239, 68, 68, 0.5);
+    box-shadow: 0 8px 30px rgba(255, 0, 85, 0.55);
 }
 
-/* Premium Card Enclosures */
 .result-card {
-    padding: 22px;
-    border-radius: 18px;
+    padding: 5px;
+    border-radius: 20px;
     width: 100%;
-    animation: slideUp 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+    animation: slideUp 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
 
 @keyframes slideUp {
-    from { opacity: 0; transform: translateY(15px); }
+    from { opacity: 0; transform: translateY(20px); }
     to { opacity: 1; transform: translateY(0); }
 }
 
-/* Red Pro Fail Variant */
-.fail-theme {
-    background: rgba(239, 68, 68, 0.04);
-    border: 1px solid rgba(239, 68, 68, 0.35);
-    box-shadow: 0 0 25px rgba(239, 68, 68, 0.08);
-}
+/* Premium Theme Card Styling Enclosures */
+.fail-theme { background: transparent; }
 .fail-title {
-    color: #ef4444;
-    font-weight: 800;
-    font-size: 16px;
-    text-shadow: 0 0 15px rgba(239, 68, 68, 0.4);
-    margin-bottom: 8px;
-    letter-spacing: 0.5px;
+    color: #ff0055;
+    font-weight: 900;
+    font-size: 18px;
+    text-shadow: 0 0 20px rgba(255, 0, 85, 0.4);
+    margin-bottom: 10px;
+    letter-spacing: 1px;
 }
-.fail-msg {
-    color: #94a3b8;
-    font-size: 13px;
-    line-height: 1.6;
-}
+.fail-msg { color: #9ca3af; font-size: 13.5px; line-height: 1.6; }
 
-/* Green Pro Success Variant */
-.success-theme {
-    background: rgba(34, 197, 94, 0.04);
-    border: 1px solid rgba(34, 197, 94, 0.4);
-    box-shadow: 0 0 25px rgba(34, 197, 94, 0.08);
-}
+.success-theme { background: transparent; }
 .success-title {
-    color: #22c55e;
-    font-weight: 800;
-    font-size: 16px;
-    text-shadow: 0 0 15px rgba(34, 197, 94, 0.4);
-    margin-bottom: 8px;
-    letter-spacing: 0.5px;
+    color: #00ff87;
+    font-weight: 900;
+    font-size: 18px;
+    text-shadow: 0 0 20px rgba(0, 255, 135, 0.4);
+    margin-bottom: 10px;
+    letter-spacing: 1px;
 }
-.success-msg {
-    color: #cbd5e1;
-    font-size: 13px;
-}
+.success-msg { color: #e2e8f0; font-size: 13.5px; }
 
-/* Premium Footer Brand Tag */
+/* Footer Brand Tag */
 .footer-tag {
-    margin-top: 30px;
+    margin-top: 35px;
     font-size: 10px;
-    font-weight: 700;
-    letter-spacing: 2px;
-    color: rgba(148, 163, 184, 0.35);
+    font-weight: 800;
+    letter-spacing: 2.5px;
+    color: rgba(156, 163, 175, 0.25);
     text-transform: uppercase;
     border-top: 1px solid rgba(255, 255, 255, 0.03);
-    padding-top: 15px;
+    padding-top: 20px;
     display: flex;
     align-items: center;
     justify-content: center;
-    gap: 4px;
+    gap: 5px;
 }
 .footer-tag span {
-    color: #38bdf8;
-    text-shadow: 0 0 8px rgba(56, 189, 248, 0.5);
+    color: #00f2fe;
+    text-shadow: 0 0 10px rgba(0, 242, 254, 0.5);
 }
 </style>
 </head>
@@ -243,7 +225,6 @@ h2 {
         </div>
     </div>
 
-    <!-- Powered by Nexo Wallet Tag -->
     <div class="footer-tag">⚡ Powered by <span>Nexo Wallet</span></div>
 </div>
 
@@ -257,7 +238,7 @@ async function updateStep(currentId, nextId) {
     if(curr) { curr.className = "step-item done"; }
     const next = document.getElementById(nextId);
     if(next) { next.className = "step-item active"; }
-    await sleep(900); // UI visual hold delay
+    await sleep(650); // Faster, smoother fluid simulation transitions
 }
 
 async function run(){
@@ -300,37 +281,34 @@ async function run(){
         /* STEP 3: Capturing Device Data */
         await updateStep("step2", "step3");
         
-        /* STEP 4: Dispatching Verification (Hit actual /api endpoint in background) */
+        /* STEP 4: Requesting Backend Gateway */
         await updateStep("step3", "step4");
 
         const api = `/api?botusername=${encodeURIComponent(globalParams.botusername)}&bottoken=${encodeURIComponent(globalParams.bottoken)}&tg_id=${encodeURIComponent(globalParams.tg_id)}&browser_id=${encodeURIComponent(globalParams.browser_id)}`;
         
-        // Background runtime request fires here
+        // Hitting backend router
         const res = await fetch(api);
-        if(!res.ok) throw new Error(`Gateway Communication Error (${res.status})`);
+        if(!res.ok) throw new Error(`Gateway Error (${res.status})`);
         
         const data = await res.json();
         
-        // Mark step 4 done after background response verification arrives
         document.getElementById("step4").className = "step-item done";
-        await sleep(600);
+        await sleep(350); // Tiny processing frame hold
 
-        /* 🔥 FINALLY: CHECK RESPONSE AND CHOOSE THE NEW SCREEN */
+        /* 🔥 SCREEN GENERATION SWITCH (BASED ON DIRECT BACKEND STATUS RESPONSE) */
         if(data && data.status === "pass"){
-            // SUCCESS NEW SCREEN
             document.body.className = "success-bg";
             mainBox.className = "box success-border";
             
             panelArea.innerHTML = `
                 <div class="result-card success-theme">
-                    <div class="success-title">✔ ACCESS GRANTED</div>
-                    <div class="success-msg">Welcome back, ${globalParams.name}. Verification cleared.</div>
+                    <div class="success-title">✔ ACCESS SYNCED</div>
+                    <div class="success-msg">Welcome back, <b>${globalParams.name}</b>. Security clearance verified successfully.</div>
                 </div>
             `;
             setTimeout(() => { if(tg) tg.close(); }, 15000);
 
         } else {
-            // FAIL NEW SCREEN
             document.body.className = "fail-bg";
             mainBox.className = "box fail-border";
             
@@ -339,7 +317,7 @@ async function run(){
                     <div class="fail-title">🚫 ACCESS DENIED</div>
                     <div class="fail-msg">
                         <b>Reason:</b> ${data.message || 'Verification Policy Violation'}<br>
-                        <span style="font-size:11px; color:#ef4444; display:block; margin-top:6px; font-weight:700;">This device fingerprint is blacklisted.</span>
+                        <span style="font-size:11.5px; color:#ff0055; display:block; margin-top:8px; font-weight:700;">This hardware profile has been blacklisted.</span>
                     </div>
                     <button class="btn-continue" onclick="handleContinueClick()">Continue</button>
                 </div>
@@ -351,8 +329,8 @@ async function run(){
         mainBox.className = "box fail-border";
         panelArea.innerHTML = `
             <div class="result-card fail-theme">
-                <div class="fail-title">⚠️ HANDSHAKE TERMINATED</div>
-                <div class="fail-msg">${err.message || 'System engine exception logged.'}</div>
+                <div class="fail-title">⚠️ ENGINE EXCEPTION</div>
+                <div class="fail-msg">${err.message || 'Gateway handshake dropped securely.'}</div>
             </div>
         `;
     }
@@ -361,16 +339,14 @@ async function run(){
 async function handleContinueClick() {
     const btn = document.querySelector('.btn-continue');
     if(btn) {
-        btn.innerHTML = "Processing...";
+        btn.innerHTML = "Closing Gateway...";
         btn.style.opacity = "0.6";
         btn.style.pointerEvents = "none";
     }
-    
-    // Continue trigger redirects back cleanly via app closure context
     setTimeout(() => {
         const tg = window.Telegram?.WebApp;
         if(tg) tg.close();
-    }, 800);
+    }, 600);
 }
 
 window.onload = run;
