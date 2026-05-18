@@ -1,216 +1,157 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
 <title>Security Gateway</title>
 
 <script src="https://telegram.org/js/telegram-web-app.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@fingerprintjs/fingerprintjs@3/dist/fp.min.js"></script>
 
 <style>
-
-*{
-    margin:0;
-    padding:0;
-    box-sizing:border-box;
-}
-
 body{
+    margin:0;
     height:100vh;
     display:flex;
-    justify-content:center;
     align-items:center;
+    justify-content:center;
     font-family:Arial;
-    background: radial-gradient(circle,#0ea5e9,#020617,#000);
+    background:linear-gradient(135deg,#0f172a,#020617);
     color:white;
 }
 
 .box{
     width:90%;
     max-width:380px;
-    padding:30px;
-    border-radius:20px;
+    padding:25px;
+    border-radius:18px;
+    background:#0b1220;
     text-align:center;
-    background:rgba(15,23,42,0.85);
-    border:1px solid rgba(56,189,248,0.3);
+    box-shadow:0 0 20px #000;
 }
 
-.logo{
-    width:80px;
-    height:80px;
-    margin:auto;
-    border-radius:50%;
-    background:#38bdf8;
-    display:flex;
-    align-items:center;
-    justify-content:center;
-    font-size:32px;
-}
-
-h2{
-    margin-top:15px;
-    color:#7dd3fc;
-}
-
-.spinner{
-    width:70px;
-    height:70px;
-    margin:25px auto;
-    border:4px solid transparent;
+.loader{
+    width:60px;
+    height:60px;
+    border:4px solid #1e293b;
     border-top:4px solid #38bdf8;
     border-radius:50%;
-    animation:spin 0.6s linear infinite;
+    margin:20px auto;
+    animation:spin 0.8s linear infinite;
 }
 
 @keyframes spin{
-    to{ transform:rotate(360deg); }
+    100%{transform:rotate(360deg);}
 }
 
-.status{
-    margin-top:10px;
-    font-size:14px;
-    color:#cbd5e1;
-}
-
-.result{
-    margin-top:15px;
-    padding:15px;
-    border-radius:12px;
-}
-
-.success{
-    background:rgba(34,197,94,0.15);
-    border:1px solid rgba(34,197,94,0.4);
-}
-
-.fail{
-    background:rgba(239,68,68,0.15);
-    border:1px solid rgba(239,68,68,0.4);
-}
-
-.icon{
-    font-size:35px;
-    margin-bottom:10px;
-}
-
-.title{
-    font-size:18px;
-    font-weight:bold;
-}
-
+.success{color:#22c55e;}
+.fail{color:#ef4444;}
 </style>
 
 </head>
-
 <body>
 
 <div class="box">
 
-    <div class="logo">🔒</div>
     <h2>Security Gateway</h2>
 
-    <div id="loader" class="spinner"></div>
-    <div id="status" class="status">Starting Verification...</div>
+    <div id="loader" class="loader"></div>
+
+    <p id="status">Initializing...</p>
 
 </div>
 
 <script>
 
-async function startVerify(){
-
-    const tg = window.Telegram?.WebApp || null;
-
-    if(tg){
-        try{
-            tg.ready();
-            tg.expand();
-        }catch(e){}
-    }
+async function run(){
 
     const status = document.getElementById("status");
     const loader = document.getElementById("loader");
 
+    const tg = window.Telegram?.WebApp;
+
+    if(tg){
+        tg.ready();
+        tg.expand();
+    }
+
+    /* URL PARAMS */
     const url = new URL(window.location.href);
     const botusername = url.searchParams.get("botusername");
     const bottoken = url.searchParams.get("bottoken");
 
     if(!botusername || !bottoken){
         loader.style.display="none";
-        status.innerHTML = "❌ Missing Config";
+        status.innerHTML = "❌ Missing Parameters";
+        status.className = "fail";
         return;
     }
 
-    let tg_id = "browser_user";
+    /* TG USER ID */
+    let tg_id = "web_user";
+    let name = "User";
 
     if(tg?.initDataUnsafe?.user){
         tg_id = tg.initDataUnsafe.user.id.toString();
+        name = tg.initDataUnsafe.user.first_name;
     }
 
     try {
 
-        status.innerHTML = "🔐 Generating Device ID...";
+        status.innerHTML = "Generating Device ID...";
 
         const fp = await FingerprintJS.load();
-        const res = await fp.get();
-        const browser_id = res.visitorId;
+        const result = await fp.get();
+        const browser_id = result.visitorId;
 
-        status.innerHTML = "⚡ Verifying Security...";
+        status.innerHTML = "Verifying...";
 
-        const api = `/api?botusername=${botusername}&bottoken=${bottoken}&tg_id=${tg_id}&browser_id=${browser_id}`;
+        const api = `/api?botusername=${encodeURIComponent(botusername)}&bottoken=${encodeURIComponent(bottoken)}&tg_id=${encodeURIComponent(tg_id)}&browser_id=${encodeURIComponent(browser_id)}`;
 
-        const response = await fetch(api);
-        const data = await response.json();
+        const res = await fetch(api);
+        const data = await res.json();
 
         loader.style.display = "none";
 
         if(data.status === "pass"){
 
             status.innerHTML = `
-            <div class="result success">
-                <div class="icon">✅</div>
-                <div class="title">VERIFIED SUCCESS</div>
-                <div>Access Granted</div>
-            </div>
+                <div class="success">
+                    ✅ VERIFIED SUCCESS<br><br>
+                    Welcome ${name}
+                </div>
             `;
 
-            // ✅ SAFE AUTO CLOSE FIX
-            if(tg){
-                setTimeout(() => {
-                    try{
-                        tg.close();
-                    }catch(e){}
-                }, 900);
-            }
+            /* AUTO CLOSE ONLY ON SUCCESS */
+            setTimeout(() => {
+                tg?.close();
+            }, 1200);
 
         } else {
 
             status.innerHTML = `
-            <div class="result fail">
-                <div class="icon">❌</div>
-                <div class="title">VERIFICATION FAILED</div>
-                <div>${data.message || "Try Again"}</div>
-            </div>
+                <div class="fail">
+                    ❌ VERIFICATION FAILED<br><br>
+                    ${data.message || "Access Denied"}
+                </div>
             `;
         }
 
-    } catch(err) {
+    } catch(err){
 
         loader.style.display = "none";
 
         status.innerHTML = `
-        <div class="result fail">
-            <div class="icon">⚠️</div>
-            <div class="title">NETWORK ERROR</div>
-            <div>Please try again</div>
-        </div>
+            <div class="fail">
+                ⚠ SERVER ERROR<br><br>
+                Try Again
+            </div>
         `;
+
     }
 }
 
-window.onload = startVerify;
+run();
 
 </script>
 
