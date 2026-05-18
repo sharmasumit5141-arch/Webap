@@ -38,7 +38,7 @@ SCHEMA (FAIL + PASS TRACK)
 const userSchema = new mongoose.Schema({
     tgId: { type: String, required: true },
     botUsername: { type: String, required: true },
-    deviceKey: { type: String, required: true },
+    deviceKey: { type: String, required: true }, // Fixed: Ab isme sirf unique browser fingerprint hoga
     ip: String,
     status: {
         type: String,
@@ -57,7 +57,6 @@ const User = mongoose.models.VerifiedUser || mongoose.model('VerifiedUser', user
 SAFE TELEGRAM ALERT (NON-BLOCKING)
 ========================= */
 function sendAlert(token, chatId, text) {
-    // Fire and forget mechanism to avoid network blocking
     fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -107,11 +106,10 @@ async function checkVPN(ip) {
 }
 
 /* =========================
-MAIN API (NO CRASH SYSTEM)
+MAIN API (ANTI-AEROPLANE MODE)
 ========================= */
 app.get('/api', async (req, res) => {
     try {
-        // FIXED: Variabled extracted cleanly to avoid casing mismatch crash
         const { botusername, bottoken, tg_id, browser_id } = req.query;
 
         /* VALIDATION SAFE */
@@ -122,28 +120,29 @@ app.get('/api', async (req, res) => {
             });
         }
 
-        /* IP SAFE RESOLUTION */
+        /* IP RESOLUTION (For Logging/VPN detection only) */
         let ip = "0.0.0.0";
         try {
             ip = req.clientIp || req.headers['x-forwarded-for'] || req.socket.remoteAddress || "0.0.0.0";
             if (ip.includes(',')) {
-                ip = ip.split(',')[0].trim(); // Proxy clean routing arrays split
+                ip = ip.split(',')[0].trim();
             }
         } catch {}
 
-        const deviceKey = `${ip}_${browser_id}`;
+        // 🔥 FIXED FIX: DeviceKey is now strictly the browser_id fingerprint (Aeroplane proof)
+        const deviceKey = `${browser_id}`;
 
         /* 🔥 VPN SCAN STARTED IN PARALLEL BACKGROUND */
         const vpnPromise = checkVPN(ip);
 
         /* =========================
-        FIND USER SAFE (FIXED VARIABLES MAPPING)
+        FIND USER SAFE
         ========================= */
         let user = null;
         try {
             user = await User.findOne({ tgId: tg_id, botUsername: botusername });
         } catch (dbErr) {
-            console.log("DB lookup skipped, connection volatile:", dbErr.message);
+            console.log("DB lookup skipped:", dbErr.message);
         }
 
         /* ❌ BLOCK FAILED USERS */
@@ -156,7 +155,6 @@ app.get('/api', async (req, res) => {
 
         /* ✅ ALREADY VERIFIED */
         if (user && user.status === "pass") {
-            // Re-send alert background without blocking loop
             sendAlert(bottoken, tg_id, `🔄 <b>ALREADY VERIFIED</b>\n🟢 Session Restored Securely.`);
             return res.json({
                 status: "pass",
@@ -165,7 +163,7 @@ app.get('/api', async (req, res) => {
         }
 
         /* =========================
-        DEVICE BLOCK DETECTION (FIXED KEY)
+        STRICT DEVICE BLOCK DETECTION (FINGERPRINT BASED)
         ========================= */
         let conflict = null;
         try {
@@ -173,12 +171,12 @@ app.get('/api', async (req, res) => {
                 deviceKey,
                 botUsername: botusername,
                 tgId: { $ne: tg_id },
-                status: "pass" // Match only valid accounts to minimize false flags
+                status: "pass" // Match only valid accounts
             });
         } catch {}
 
         if (conflict) {
-            // Database logger working independently async
+            // Hard block status log in database
             saveUserLog(tg_id, botusername, deviceKey, ip, "fail", "Device already used");
             
             sendAlert(bottoken, tg_id, "🚫 <b>ACCESS DENIED</b>\n❌ Multi-Account Device Key Matching.");
@@ -200,7 +198,6 @@ app.get('/api', async (req, res) => {
         /* =========================
         SUCCESS PROCESSING & DISPATCH
         ========================= */
-        // DB save processes silently down the stack background pipeline
         saveUserLog(tg_id, botusername, deviceKey, ip, "pass", "");
 
         /* INSTANT RESPONSE ALERT */
@@ -218,7 +215,6 @@ app.get('/api', async (req, res) => {
     } catch (err) {
         console.log("CRASH INTERCEPTED OK:", err.message);
 
-        // Fail-safe default response to stop loop hang or infinite busy message
         return res.json({
             status: "fail",
             message: "System busy. Reload your Gateway browser link."
@@ -230,4 +226,4 @@ app.get('/api', async (req, res) => {
 EXPORT
 ========================= */
 module.exports = app;
-        
+    
