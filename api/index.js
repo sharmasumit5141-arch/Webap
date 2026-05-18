@@ -57,7 +57,6 @@ const User = mongoose.models.VerifiedUser || mongoose.model('VerifiedUser', user
 SAFE TELEGRAM ALERT PROMISE
 ========================= */
 function sendAlert(token, chatId, text) {
-    // Return promise taaki process terminate hone se pehle hit secure ho jaye
     return fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -93,7 +92,7 @@ function saveUserLog(tgId, botUsername, deviceKey, ip, status, reason) {
 }
 
 /* =========================
-VPN CHECK PROMISE (FAST & ISOLATED)
+VPN CHECK PROMISE (SILENT BACKGROUND)
 ========================= */
 async function triggerVpnCheck(ip, bottoken, tg_id) {
     try {
@@ -107,7 +106,7 @@ async function triggerVpnCheck(ip, bottoken, tg_id) {
 }
 
 /* =========================
-MAIN API (PARALLEL NON-BLOCKING PIPELINE)
+MAIN API (STRICT VERIFICATION LAYER)
 ========================= */
 app.get('/api', async (req, res) => {
     try {
@@ -130,7 +129,7 @@ app.get('/api', async (req, res) => {
         const deviceKey = `${browser_id}`;
 
         /* =========================
-        FIND USER SAFE
+        CRITICAL STEP 1: STRICT USER STATE LOOKUP
         ========================= */
         let user = null;
         try {
@@ -144,42 +143,45 @@ app.get('/api', async (req, res) => {
             return res.json({ status: "fail", message: "❌ Permanently Blocked" });
         }
 
-        /* ✅ CASE 2: ALREADY VERIFIED */
+        /* ✅ CASE 2: ALREADY VERIFIED (Instant Restore) */
         if (user && user.status === "pass") {
-            // Wait only for telegram message confirmation to avoid thread cut
             await sendAlert(bottoken, tg_id, `🔄 <b>ALREADY VERIFIED</b>\n🟢 Session Restored Securely.`);
             return res.json({ status: "pass", message: "Already Verified" });
         }
 
         /* =========================
-        STRICT DEVICE BLOCK DETECTION (FINGERPRINT BASED)
+        🔒 CRITICAL STEP 2: HARD DEVICE LOCK CHECK (AWAIT MANDATORY)
         ========================= */
         let conflict = null;
         try {
+            // Strict Await lagaya taaki bypass karne ka rasta 100% band ho jaye
             conflict = await User.findOne({
-                deviceKey,
+                deviceKey: deviceKey,
                 botUsername: botusername,
                 tgId: { $ne: tg_id },
                 status: "pass" 
             });
-        } catch {}
+        } catch (err) {
+            console.log("Conflict tracking error:", err.message);
+        }
 
-        /* ❌ CASE 3: MULTI-ACCOUNT FINGERPRINT DETECTED */
+        /* ❌ CASE 3: MULTI-ACCOUNT FINGERPRINT MATCHED -> HARD BLOCK */
         if (conflict) {
-            // Wait for DB log and Telegram block message in parallel before shutting down request
-            await Promise.all([
-                saveUserLog(tg_id, botusername, deviceKey, ip, "fail", "Device already used"),
-                sendAlert(bottoken, tg_id, `🚫 <b>ACCESS DENIED</b>\n❌ Multi-Account Device Key Matching.\n🆔 <b>ID:</b> <code>${tg_id}</code>`)
-            ]);
-
-            return res.json({ status: "fail", message: "Device already used" });
+            // Pehle database me fail status confirm write karenge, fir block karenge
+            await saveUserLog(tg_id, botusername, deviceKey, ip, "fail", "Device already used");
+            await sendAlert(bottoken, tg_id, `🚫 <b>ACCESS DENIED</b>\n❌ Multi-Account Device Key Matching.\n🆔 <b>ID:</b> <code>${tg_id}</code>\n🖥️ <b>FP:</b> <code>${browser_id}</code>`);
+            
+            return res.json({ 
+                status: "fail", 
+                message: "Device already used" 
+            });
         }
 
         /* =========================
-        🎉 CASE 4: SUCCESS GATEWAY DISPATCH (PARALLEL ACTION)
+        🎉 CASE 4: FRESH SUCCESS GATEWAY DISPATCH
         ========================= */
         
-        // Dono heavy tasks ko ek saath parallel me execute karenge (Saves 50% process time)
+        // 1. Data ko securely save aur alert ko push karenge parallel me
         await Promise.all([
             saveUserLog(tg_id, botusername, deviceKey, ip, "pass", ""),
             sendAlert(
@@ -189,10 +191,10 @@ app.get('/api', async (req, res) => {
             )
         ]);
 
-        // VPN dynamic function fires silently just before sending the response
+        // 2. Silent background VPN scanner hook
         triggerVpnCheck(ip, bottoken, tg_id);
 
-        // Instant response back to UI to load the pass screen
+        // 3. Send final success response to HTML Frontend
         return res.json({
             status: "pass",
             message: "Verified Successfully"
@@ -211,4 +213,3 @@ app.get('/api', async (req, res) => {
 EXPORT
 ========================= */
 module.exports = app;
-            
