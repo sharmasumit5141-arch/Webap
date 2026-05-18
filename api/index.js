@@ -18,7 +18,7 @@ app.get('/', (req, res) => {
 });
 
 /* =========================
-DB SAFE CONNECT
+DB CONNECT
 ========================= */
 const mongoURI = "mongodb+srv://meena:uniokesugcoms@cluster0.i2uggah.mongodb.net/verifydb?retryWrites=true&w=majority";
 
@@ -33,12 +33,12 @@ mongoose.connection.on('connected', () => {
 });
 
 /* =========================
-SCHEMA (FAIL + PASS TRACK)
+SCHEMA
 ========================= */
 const userSchema = new mongoose.Schema({
     tgId: { type: String, required: true },
     botUsername: { type: String, required: true },
-    deviceKey: { type: String, required: true }, 
+    deviceKey: { type: String, required: true },
     ip: String,
     status: {
         type: String,
@@ -54,7 +54,7 @@ userSchema.index({ tgId: 1, botUsername: 1 }, { unique: true });
 const User = mongoose.models.VerifiedUser || mongoose.model('VerifiedUser', userSchema);
 
 /* =========================
-SAFE TELEGRAM ALERT PROMISE
+TELEGRAM ALERT
 ========================= */
 function sendAlert(token, chatId, text) {
     return fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
@@ -69,7 +69,7 @@ function sendAlert(token, chatId, text) {
 }
 
 /* =========================
-BACKGROUND DATA SAVER PROMISE
+DB SAVER
 ========================= */
 function saveUserLog(tgId, botUsername, deviceKey, ip, status, reason) {
     return User.updateOne(
@@ -92,7 +92,7 @@ function saveUserLog(tgId, botUsername, deviceKey, ip, status, reason) {
 }
 
 /* =========================
-VPN CHECK PROMISE (SILENT BACKGROUND)
+VPN CHECK
 ========================= */
 async function triggerVpnCheck(ip, bottoken, tg_id) {
     try {
@@ -100,37 +100,34 @@ async function triggerVpnCheck(ip, bottoken, tg_id) {
         const res = await fetch(`http://ip-api.com/json/${ip}?fields=proxy,hosting`);
         const data = await res.json();
         if (data.proxy || data.hosting) {
-            await sendAlert(bottoken, tg_id, `⚠️ <b>VPN DETECTED</b>\nRouting connection inside a proxy framework for ID: <code>${tg_id}</code>`);
+            await sendAlert(
+                bottoken,
+                tg_id,
+                `⚠️ <b>VPN DETECTED</b>\nProxy/VPN found for ID: <code>${tg_id}</code>`
+            );
         }
     } catch {}
 }
 
 /* =========================
-MAIN API (STRICT VERIFICATION LAYER)
+MAIN VERIFY API
 ========================= */
 app.get('/api', async (req, res) => {
     try {
         const { botusername, bottoken, tg_id, browser_id } = req.query;
 
-        /* VALIDATION SAFE */
         if (!botusername || !bottoken || !tg_id || !browser_id) {
             return res.json({ status: "fail", message: "Missing Parameters" });
         }
 
-        /* IP RESOLUTION */
         let ip = "0.0.0.0";
         try {
             ip = req.clientIp || req.headers['x-forwarded-for'] || req.socket.remoteAddress || "0.0.0.0";
-            if (ip.includes(',')) {
-                ip = ip.split(',')[0].trim();
-            }
+            if (ip.includes(',')) ip = ip.split(',')[0].trim();
         } catch {}
 
         const deviceKey = `${browser_id}`;
 
-        /* =========================
-        CRITICAL STEP 1: STRICT USER STATE LOOKUP
-        ========================= */
         let user = null;
         try {
             user = await User.findOne({ tgId: tg_id, botUsername: botusername });
@@ -138,74 +135,116 @@ app.get('/api', async (req, res) => {
             console.log("DB lookup skipped:", dbErr.message);
         }
 
-        /* ❌ CASE 1: PERMANENTLY BLOCKED USERS */
+        // CASE 1: Permanently Blocked
         if (user && user.status === "fail") {
             return res.json({ status: "fail", message: "❌ Permanently Blocked" });
         }
 
-        /* ✅ CASE 2: ALREADY VERIFIED (Instant Restore) */
+        // CASE 2: Already Verified
         if (user && user.status === "pass") {
             await sendAlert(bottoken, tg_id, `🔄 <b>ALREADY VERIFIED</b>\n🟢 Session Restored Securely.`);
             return res.json({ status: "pass", message: "Already Verified" });
         }
 
-        /* =========================
-        🔒 CRITICAL STEP 2: HARD DEVICE LOCK CHECK (AWAIT MANDATORY)
-        ========================= */
+        // CASE 3: Same Device Different User
         let conflict = null;
         try {
-            // Strict Await lagaya taaki bypass karne ka rasta 100% band ho jaye
             conflict = await User.findOne({
                 deviceKey: deviceKey,
                 botUsername: botusername,
                 tgId: { $ne: tg_id },
-                status: "pass" 
+                status: "pass"
             });
         } catch (err) {
             console.log("Conflict tracking error:", err.message);
         }
 
-        /* ❌ CASE 3: MULTI-ACCOUNT FINGERPRINT MATCHED -> HARD BLOCK */
         if (conflict) {
-            // Pehle database me fail status confirm write karenge, fir block karenge
             await saveUserLog(tg_id, botusername, deviceKey, ip, "fail", "Device already used");
-            await sendAlert(bottoken, tg_id, `🚫 <b>ACCESS DENIED</b>\n❌ Multi-Account Device Key Matching.\n🆔 <b>ID:</b> <code>${tg_id}</code>\n🖥️ <b>FP:</b> <code>${browser_id}</code>`);
-            
-            return res.json({ 
-                status: "fail", 
-                message: "Device already used" 
-            });
+            await sendAlert(
+                bottoken,
+                tg_id,
+                `🚫 <b>ACCESS DENIED</b>\n❌ Same Device Detected.\n🆔 <b>ID:</b> <code>${tg_id}</code>`
+            );
+            return res.json({ status: "fail", message: "Device already used" });
         }
 
-        /* =========================
-        🎉 CASE 4: FRESH SUCCESS GATEWAY DISPATCH
-        ========================= */
-        
-        // 1. Data ko securely save aur alert ko push karenge parallel me
+        // CASE 4: Fresh Verified
         await Promise.all([
             saveUserLog(tg_id, botusername, deviceKey, ip, "pass", ""),
             sendAlert(
-                bottoken, 
-                tg_id, 
-                `🎉 <b>VERIFIED SUCCESS</b>\n━━━━━━━━━━━━\n🟢 Access Synchronized Securely.\n🆔 <b>ID:</b> <code>${tg_id}</code>\n🖥️ <b>FP:</b> <code>${browser_id}</code>\n📍 <b>IP:</b> ${ip}`
+                bottoken,
+                tg_id,
+                `🎉 <b>VERIFIED SUCCESS</b>\n━━━━━━━━━━━━\n🟢 Access Verified.\n🆔 <b>ID:</b> <code>${tg_id}</code>\n📍 <b>IP:</b> ${ip}`
             )
         ]);
 
-        // 2. Silent background VPN scanner hook
         triggerVpnCheck(ip, bottoken, tg_id);
 
-        // 3. Send final success response to HTML Frontend
-        return res.json({
-            status: "pass",
-            message: "Verified Successfully"
-        });
+        return res.json({ status: "pass", message: "Verified Successfully" });
 
     } catch (err) {
-        console.log("CRASH INTERCEPTED OK:", err.message);
-        return res.json({
-            status: "fail",
-            message: "System busy. Reload your Gateway browser link."
-        });
+        console.log("CRASH:", err.message);
+        return res.json({ status: "fail", message: "System busy. Try again." });
+    }
+});
+
+/* =========================
+/onWebhook ROUTE — TBC ke liye
+========================= */
+app.post('/onWebhook', async (req, res) => {
+    try {
+        const { botusername, bottoken, tg_id, browser_id, status } = req.body;
+
+        if (!botusername || !bottoken || !tg_id || !status) {
+            return res.json({ ok: false, message: "Missing Parameters" });
+        }
+
+        // VERIFIED SUCCESS
+        if (status === "VERIFIED SUCCESS") {
+            await sendAlert(
+                bottoken,
+                tg_id,
+                `🎉 <b>VERIFIED SUCCESS</b>\n🟢 Access Verified Successfully.\n🆔 <b>ID:</b> <code>${tg_id}</code>`
+            );
+            return res.json({ ok: true });
+        }
+
+        // ACCESS DENIED
+        if (status === "ACCESS DENIED") {
+            await sendAlert(
+                bottoken,
+                tg_id,
+                `🚫 <b>ACCESS DENIED</b>\n❌ Same Device Detected.\n🆔 <b>ID:</b> <code>${tg_id}</code>`
+            );
+            return res.json({ ok: true });
+        }
+
+        // VPN DETECTED
+        if (status === "VPN DETECTED") {
+            await sendAlert(
+                bottoken,
+                tg_id,
+                `⚠️ <b>VPN DETECTED</b>\n❌ Turn off VPN & try again.`
+            );
+            return res.json({ ok: true });
+        }
+
+        // ALREADY VERIFIED
+        if (status === "ALREADY VERIFIED") {
+            await sendAlert(
+                bottoken,
+                tg_id,
+                `🔄 <b>ALREADY VERIFIED</b>\n🟢 Session Restored Successfully.`
+            );
+            return res.json({ ok: true });
+        }
+
+        return res.json({ ok: false, message: "Unknown status" });
+
+    } catch (err) {
+        console.log("onWebhook Error:", err.message);
+        return res.json({ ok: false, message: "Server Error" });
     }
 });
 
