@@ -1,5 +1,3 @@
-// api/index.js
-
 const express = require('express');
 const fetch = require('node-fetch');
 const requestIp = require('request-ip');
@@ -9,6 +7,13 @@ const app = express();
 
 app.use(express.json());
 app.use(requestIp.mw());
+
+/* =========================
+   ROOT
+========================= */
+app.get('/', (req, res) => {
+    res.send("🚀 API Running");
+});
 
 /* =========================
    DB CONNECT
@@ -25,7 +30,7 @@ mongoose.connection.on('connected', () => {
 });
 
 /* =========================
-   SCHEMA (WITH STATUS)
+   SCHEMA
 ========================= */
 const userSchema = new mongoose.Schema({
     tgId: String,
@@ -33,20 +38,70 @@ const userSchema = new mongoose.Schema({
     deviceKey: String,
     ip: String,
 
+    vpn: Boolean,
+
     status: {
         type: String,
-        enum: ["pending", "failed", "verified"],
-        default: "pending"
+        enum: ["failed", "verified"],
+        default: "verified"
     },
 
-    lastTry: Date,
     createdAt: { type: Date, default: Date.now }
 });
 
 userSchema.index({ tgId: 1, botUsername: 1 }, { unique: true });
 
 const User =
-mongoose.models.User || mongoose.model('User', userSchema);
+mongoose.models.VerifiedUser ||
+mongoose.model('VerifiedUser', userSchema);
+
+/* =========================
+   SAFE TELEGRAM ALERT (NON-BLOCKING)
+========================= */
+async function sendAlert(token, chatId, text) {
+
+    try {
+
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), 2000); // 2 sec limit
+
+        await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                chat_id: chatId,
+                text
+            }),
+            signal: controller.signal
+        });
+
+        clearTimeout(timeout);
+
+    } catch (e) {
+        // ❌ NEVER FAIL API IF TG BLOCKS
+        console.log("TG Alert skipped");
+    }
+}
+
+/* =========================
+   VPN CHECK (FREE API SAFE)
+========================= */
+async function checkVPN(ip) {
+
+    try {
+
+        const res = await fetch(
+            `http://ip-api.com/json/${ip}?fields=proxy,hosting`
+        );
+
+        const data = await res.json();
+
+        return Boolean(data.proxy || data.hosting);
+
+    } catch {
+        return false;
+    }
+}
 
 /* =========================
    MAIN API
@@ -59,8 +114,8 @@ app.get('/api', async (req, res) => {
 
         if (!botusername || !bottoken || !tg_id || !browser_id) {
             return res.json({
-                status: 'fail',
-                message: 'Missing parameters'
+                status: "fail",
+                message: "Missing Parameters"
             });
         }
 
@@ -73,64 +128,98 @@ app.get('/api', async (req, res) => {
         const deviceKey = `${ip}_${browser_id}`;
 
         /* =========================
+           VPN DETECTION
+        ========================= */
+        const vpn = await checkVPN(ip);
+
+        if (vpn) {
+            return res.json({
+                status: "fail",
+                message: "❌ VPN/Proxy Detected"
+            });
+        }
+
+        /* =========================
            FIND USER
         ========================= */
         let user = await User.findOne({ tgId: tg_id, botUsername });
 
+        if (user && user.status === "failed") {
+            return res.json({
+                status: "fail",
+                message: "❌ Access Denied (Previously Failed)"
+            });
+        }
+
+        if (user && user.status === "verified") {
+            return res.json({
+                status: "pass",
+                message: "🎉 Already Verified"
+            });
+        }
+
         /* =========================
-           IF FIRST TIME → CREATE FAIL ENTRY FIRST
+           VERIFY LOGIC
         ========================= */
-        if (!user) {
-            user = await User.create({
+        const isSuccess = true; // real logic here
+
+        if (!isSuccess) {
+
+            await User.create({
                 tgId: tg_id,
                 botUsername,
                 deviceKey,
                 ip,
-                status: "failed",
-                lastTry: new Date()
+                vpn: false,
+                status: "failed"
             });
-        } else {
-            // retry update (important)
-            user.deviceKey = deviceKey;
-            user.ip = ip;
-            user.lastTry = new Date();
-        }
-
-        /* =========================
-           SIMULATED VERIFICATION LOGIC
-        ========================= */
-
-        const isSuccess = true; // <- yaha apna real logic lagana
-
-        if (!isSuccess) {
-
-            user.status = "failed";
-            await user.save();
 
             return res.json({
-                status: 'fail',
-                message: '❌ Verification Failed, try again'
+                status: "fail",
+                message: "❌ Verification Failed"
             });
         }
 
         /* =========================
-           SUCCESS UPDATE (OVERWRITE FAIL → VERIFIED)
+           SAVE VERIFIED
         ========================= */
-        user.status = "verified";
-        await user.save();
+        await User.updateOne(
+            { tgId: tg_id, botUsername },
+            {
+                $set: {
+                    tgId: tg_id,
+                    botUsername,
+                    deviceKey,
+                    ip,
+                    vpn: false,
+                    status: "verified",
+                    createdAt: new Date()
+                }
+            },
+            { upsert: true }
+        );
+
+        /* =========================
+           SAFE ALERT (NON BLOCKING)
+        ========================= */
+        sendAlert(
+            bottoken,
+            tg_id,
+            "🎉 USER VERIFIED SUCCESSFULLY"
+        );
 
         return res.json({
-            status: 'pass',
-            message: '🎉 Verified Successfully'
+            status: "pass",
+            message: "🎉 User Verified Successfully"
         });
 
     } catch (err) {
 
-        console.log(err);
+        console.log("ERROR:", err.message);
 
         return res.json({
-            status: 'fail',
-            message: '❌ Server Error'
+            status: "fail",
+            message: "Server Error"
         });
     }
 });
