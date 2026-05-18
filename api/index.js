@@ -4,17 +4,21 @@ const express = require('express');
 const fetch = require('node-fetch');
 const requestIp = require('request-ip');
 const mongoose = require('mongoose');
+const path = require('path');
 
 const app = express();
 
 app.use(express.json());
 app.use(requestIp.mw());
 
+// Serve static HTML
+app.use(express.static(path.join(__dirname, '../public')));
+
 /* =========================
 ROOT
 ========================= */
 app.get('/', (req, res) => {
-    res.send("🚀 API Running");
+    res.sendFile(path.join(__dirname, '../public/index.html'));
 });
 
 /* =========================
@@ -36,16 +40,16 @@ mongoose.connection.on('connected', () => {
 SCHEMA
 ========================= */
 const userSchema = new mongoose.Schema({
-    tgId: { type: String, required: true },
+    tgId:        { type: String, required: true },
     botUsername: { type: String, required: true },
-    deviceKey: { type: String, required: true },
-    ip: String,
+    deviceKey:   { type: String, required: true },
+    ip:          String,
     status: {
         type: String,
         enum: ["pass", "fail"],
         default: "pass"
     },
-    reason: String,
+    reason:    String,
     createdAt: { type: Date, default: Date.now }
 });
 
@@ -66,6 +70,22 @@ function sendAlert(token, chatId, text) {
             parse_mode: 'HTML'
         })
     }).catch((err) => { console.log("Telegram Dispatch Error:", err.message); });
+}
+
+/* =========================
+FIRE WEBHOOK TO TBC
+========================= */
+async function fireWebhook(webhookUrl, payload) {
+    if (!webhookUrl) return;
+    try {
+        await fetch(webhookUrl, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(payload)
+        });
+    } catch (err) {
+        console.log("Webhook Fire Error:", err.message);
+    }
 }
 
 /* =========================
@@ -94,10 +114,10 @@ function saveUserLog(tgId, botUsername, deviceKey, ip, status, reason) {
 /* =========================
 VPN CHECK
 ========================= */
-async function triggerVpnCheck(ip, bottoken, tg_id) {
+async function triggerVpnCheck(ip, bottoken, tg_id, webhookUrl) {
     try {
         if (!ip || ip === "0.0.0.0" || ip === "UNKNOWN") return;
-        const res = await fetch(`http://ip-api.com/json/${ip}?fields=proxy,hosting`);
+        const res  = await fetch(`http://ip-api.com/json/${ip}?fields=proxy,hosting`);
         const data = await res.json();
         if (data.proxy || data.hosting) {
             await sendAlert(
@@ -105,6 +125,11 @@ async function triggerVpnCheck(ip, bottoken, tg_id) {
                 tg_id,
                 `⚠️ <b>VPN DETECTED</b>\nProxy/VPN found for ID: <code>${tg_id}</code>`
             );
+            // Fire webhook for VPN too
+            await fireWebhook(webhookUrl, {
+                status: "fail",
+                message: "VPN Detected"
+            });
         }
     } catch {}
 }
@@ -114,7 +139,7 @@ MAIN VERIFY API
 ========================= */
 app.get('/api', async (req, res) => {
     try {
-        const { botusername, bottoken, tg_id, browser_id } = req.query;
+        const { botusername, bottoken, tg_id, browser_id, webhook } = req.query;
 
         if (!botusername || !bottoken || !tg_id || !browser_id) {
             return res.json({ status: "fail", message: "Missing Parameters" });
@@ -137,12 +162,13 @@ app.get('/api', async (req, res) => {
 
         // CASE 1: Permanently Blocked
         if (user && user.status === "fail") {
-            return res.json({ status: "fail", message: "❌ Permanently Blocked" });
+            await fireWebhook(webhook, { status: "fail", message: "Permanently Blocked" });
+            return res.json({ status: "fail", message: "Permanently Blocked" });
         }
 
         // CASE 2: Already Verified
         if (user && user.status === "pass") {
-            await sendAlert(bottoken, tg_id, `🔄 <b>ALREADY VERIFIED</b>\n🟢 Session Restored Securely.`);
+            await fireWebhook(webhook, { status: "pass", message: "Already Verified" });
             return res.json({ status: "pass", message: "Already Verified" });
         }
 
@@ -150,10 +176,10 @@ app.get('/api', async (req, res) => {
         let conflict = null;
         try {
             conflict = await User.findOne({
-                deviceKey: deviceKey,
+                deviceKey:   deviceKey,
                 botUsername: botusername,
-                tgId: { $ne: tg_id },
-                status: "pass"
+                tgId:        { $ne: tg_id },
+                status:      "pass"
             });
         } catch (err) {
             console.log("Conflict tracking error:", err.message);
@@ -161,25 +187,16 @@ app.get('/api', async (req, res) => {
 
         if (conflict) {
             await saveUserLog(tg_id, botusername, deviceKey, ip, "fail", "Device already used");
-            await sendAlert(
-                bottoken,
-                tg_id,
-                `🚫 <b>ACCESS DENIED</b>\n❌ Same Device Detected.\n🆔 <b>ID:</b> <code>${tg_id}</code>`
-            );
+            await fireWebhook(webhook, { status: "fail", message: "Device already used" });
             return res.json({ status: "fail", message: "Device already used" });
         }
 
         // CASE 4: Fresh Verified
-        await Promise.all([
-            saveUserLog(tg_id, botusername, deviceKey, ip, "pass", ""),
-            sendAlert(
-                bottoken,
-                tg_id,
-                `🎉 <b>VERIFIED SUCCESS</b>\n━━━━━━━━━━━━\n🟢 Access Verified.\n🆔 <b>ID:</b> <code>${tg_id}</code>\n📍 <b>IP:</b> ${ip}`
-            )
-        ]);
+        await saveUserLog(tg_id, botusername, deviceKey, ip, "pass", "");
+        await fireWebhook(webhook, { status: "pass", message: "Verified Successfully" });
 
-        triggerVpnCheck(ip, bottoken, tg_id);
+        // Silent VPN check in background
+        triggerVpnCheck(ip, bottoken, tg_id, webhook);
 
         return res.json({ status: "pass", message: "Verified Successfully" });
 
@@ -190,61 +207,35 @@ app.get('/api', async (req, res) => {
 });
 
 /* =========================
-/onWebhook ROUTE — TBC ke liye
+CHECK STATUS API
 ========================= */
-app.post('/onWebhook', async (req, res) => {
+app.get('/api/check', async (req, res) => {
     try {
-        const { botusername, bottoken, tg_id, browser_id, status } = req.body;
+        const { botusername, tg_id } = req.query;
 
-        if (!botusername || !bottoken || !tg_id || !status) {
-            return res.json({ ok: false, message: "Missing Parameters" });
+        if (!botusername || !tg_id) {
+            return res.json({ status: "pending" });
         }
 
-        // VERIFIED SUCCESS
-        if (status === "VERIFIED SUCCESS") {
-            await sendAlert(
-                bottoken,
-                tg_id,
-                `🎉 <b>VERIFIED SUCCESS</b>\n🟢 Access Verified Successfully.\n🆔 <b>ID:</b> <code>${tg_id}</code>`
-            );
-            return res.json({ ok: true });
+        let user = null;
+        try {
+            user = await User.findOne({
+                tgId:        tg_id,
+                botUsername: botusername
+            });
+        } catch (err) {
+            console.log("Check DB Error:", err.message);
         }
 
-        // ACCESS DENIED
-        if (status === "ACCESS DENIED") {
-            await sendAlert(
-                bottoken,
-                tg_id,
-                `🚫 <b>ACCESS DENIED</b>\n❌ Same Device Detected.\n🆔 <b>ID:</b> <code>${tg_id}</code>`
-            );
-            return res.json({ ok: true });
+        if (!user) {
+            return res.json({ status: "pending" });
         }
 
-        // VPN DETECTED
-        if (status === "VPN DETECTED") {
-            await sendAlert(
-                bottoken,
-                tg_id,
-                `⚠️ <b>VPN DETECTED</b>\n❌ Turn off VPN & try again.`
-            );
-            return res.json({ ok: true });
-        }
-
-        // ALREADY VERIFIED
-        if (status === "ALREADY VERIFIED") {
-            await sendAlert(
-                bottoken,
-                tg_id,
-                `🔄 <b>ALREADY VERIFIED</b>\n🟢 Session Restored Successfully.`
-            );
-            return res.json({ ok: true });
-        }
-
-        return res.json({ ok: false, message: "Unknown status" });
+        return res.json({ status: user.status });
 
     } catch (err) {
-        console.log("onWebhook Error:", err.message);
-        return res.json({ ok: false, message: "Server Error" });
+        console.log("Check Error:", err.message);
+        return res.json({ status: "pending" });
     }
 });
 
