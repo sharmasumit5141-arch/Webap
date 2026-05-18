@@ -1,69 +1,61 @@
-const { MongoClient } = require("mongodb");
-const MONGO_URI = process.env.MONGO_URI;
+const express = require('express');
+const mongoose = require('mongoose');
 
-export default async function handler(req, res) {
-  res.setHeader("Access-Control-Allow-Origin", "*");
-  res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
-  res.setHeader("Access-Control-Allow-Headers", "Content-Type");
-  if (req.method === "OPTIONS") return res.status(200).end();
-  if (req.method !== "POST") return res.status(405).json({ error: "Method not allowed" });
+const app = express();
+app.use(express.json());
 
-  const { device_id, tg_id, tg_name, bot_id, ref } = req.body;
-  if (!device_id || !tg_id || !bot_id) return res.status(400).json({ error: "Missing fields" });
+/* =========================
+DB SAFE CONNECT (Usi Main Database Se Connect)
+========================= */
+const mongoURI = "mongodb+srv://meena:uniokesugcoms@cluster0.i2uggah.mongodb.net/verifydb?retryWrites=true&w=majority";
 
-  let client;
-  try {
-    client = new MongoClient(MONGO_URI);
-    await client.connect();
-    const db = client.db("device_verify");
-    const devices = db.collection("devices");
-    const users = db.collection("users");
-
-    // Same device check
-    const existing = await devices.findOne({ device_id, bot_id });
-    if (existing) {
-      if (existing.tg_id === tg_id) return res.status(200).json({ status: "already_mine" });
-      else return res.status(200).json({ status: "failed" });
-    }
-
-    // New device — save karo
-    await devices.insertOne({
-      device_id, tg_id, tg_name: tg_name || "User",
-      bot_id, created_at: new Date()
+// Agar pehle se connected nahi hai toh connect karega
+if (mongoose.connection.readyState === 0) {
+    mongoose.connect(mongoURI, { serverSelectionTimeoutMS: 5000 }).catch(err => {
+        console.log("DB Connection Error in Checker:", err.message);
     });
+}
 
-    // User create karo agar nahi hai
-    const userExists = await users.findOne({ tg_id, bot_id });
-    if (!userExists) {
-      await users.insertOne({
-        tg_id, tg_name: tg_name || "User",
-        bot_id, balance: 0,
-        referrer: ref || null,
-        verified_at: new Date()
-      });
+/* =========================
+SCHEMA REFERENCE (Usi Main Point/Collection Par)
+========================= */
+const userSchema = new mongoose.Schema({
+    tgId: String,
+    botUsername: String,
+    status: String
+});
+
+// Usi 'VerifiedUser' collection ko hit karega jahan data save ho raha hai
+const User = mongoose.models.VerifiedUser || mongoose.model('VerifiedUser', userSchema);
+
+/* =========================
+🔄 BOT STATUS CHECKER POINT
+========================= */
+// URL Format: URL/api/check?botusername=Nexo_bot&tg_id=123456789
+app.get('/api/check', async (req, res) => {
+    try {
+        const { botusername, tg_id } = req.query;
+
+        // Validation
+        if (!botusername || !tg_id) {
+            return res.json({ status: "error", message: "Missing botusername or tg_id" });
+        }
+
+        // Direct Point Par Search (Main Database Collection)
+        const userRecord = await User.findOne({ tgId: tg_id, botUsername: botusername });
+
+        // 1. Agar entry nahi mili -> Matlab user pending hai
+        if (!userRecord) {
+            return res.json({ status: "pending" });
+        }
+
+        // 2. Agar entry mil gayi -> Jo bhi status save hai (pass/fail) wahi bhej do
+        return res.json({ status: userRecord.status });
+
+    } catch (err) {
+        console.log("Checker Error:", err.message);
+        return res.json({ status: "error", message: "Database busy." });
     }
+});
 
-    // Referrer ko refer amount do
-    if (ref && ref !== tg_id) {
-      const settings = await db.collection("settings").findOne({ bot_id });
-      const referAmount = settings?.refer_amount || 0;
-      if (referAmount > 0) {
-        await users.updateOne(
-          { tg_id: ref, bot_id },
-          { $inc: { balance: referAmount } }
-        );
-        await db.collection("refer_log").insertOne({
-          referrer: ref, referred: tg_id,
-          amount: referAmount, bot_id,
-          created_at: new Date()
-        });
-      }
-    }
-
-    return res.status(200).json({ status: "success" });
-  } catch (err) {
-    return res.status(500).json({ error: "Server error" });
-  } finally {
-    if (client) await client.close();
-  }
-          }
+module.exports = app;
